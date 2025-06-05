@@ -603,6 +603,7 @@ def analyze_ratios():
     result_output += "=" * 35
 
     result_text.set(result_output)
+    print("selam")
 
 
 
