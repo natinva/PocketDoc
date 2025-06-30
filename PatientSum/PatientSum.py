@@ -48,19 +48,23 @@ class PatientSumApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Top controls frame across two columns
+        # Top controls frame
         ctrl = ctk.CTkFrame(self, fg_color="#e6f2ff")
         ctrl.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=5)
+        # make sure column 6 has space
+        for col in range(7):
+            ctrl.grid_columnconfigure(col, weight=0)
 
         # Transcription mode radios
         self.trans_model = tk.StringVar(value="whisper_api")
-        ctk.CTkRadioButton(ctrl, text="Online Whisper", variable=self.trans_model, value="whisper_api", text_color="#003366")\
+        ctk.CTkRadioButton(ctrl, text="Online Whisper",  variable=self.trans_model, value="whisper_api",  text_color="#003366")\
             .grid(row=0, column=0, padx=5)
         ctk.CTkRadioButton(ctrl, text="Offline Whisper", variable=self.trans_model, value="whisper_offline", text_color="#003366")\
             .grid(row=0, column=1, padx=5)
 
         # Language selector
-        ctk.CTkLabel(ctrl, text="Language:", text_color="#003366").grid(row=0, column=2, padx=(20,5))
+        ctk.CTkLabel(ctrl, text="Language:", text_color="#003366")\
+            .grid(row=0, column=2, padx=(20,5))
         self.lang = tk.StringVar(value="en")
         ctk.CTkOptionMenu(
             ctrl,
@@ -78,24 +82,25 @@ class PatientSumApp(ctk.CTk):
         self.start_btn.grid(row=0, column=4, padx=10)
         self.stop_btn.grid(row=0, column=5, padx=5)
 
-        # Summarize button moved to top controls
+        # Summarize button — artık hep görünür, disable’ı start/stop’da ayarlanıyor
         self.sum_btn = ctk.CTkButton(
             ctrl,
             text="Summarize",
             command=self.generate_summary,
-            state="disabled",
             fg_color="#003366",
             hover_color="#005599"
         )
         self.sum_btn.grid(row=0, column=6, padx=5)
+        # başlangıçta pasif et
+        self.sum_btn.configure(state="disabled")
 
-        # Transcript area (left)
+        # Transcript area
         lbl_trans = ctk.CTkLabel(self, text="Transcript:", font=("Helvetica", 18), text_color="#003366")
         lbl_trans.grid(row=1, column=0, sticky="nw", padx=10)
         self.transcript_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18), bg="white", fg="#003366")
         self.transcript_box.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0,5))
 
-        # Summary area (right)
+        # Summary area
         lbl_sum = ctk.CTkLabel(self, text="Summary:", font=("Helvetica", 18), text_color="#003366")
         lbl_sum.grid(row=1, column=1, sticky="nw", padx=10)
         self.summary_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18), bg="white", fg="#003366")
@@ -113,20 +118,15 @@ class PatientSumApp(ctk.CTk):
         self.audio_frames.clear()
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
-        self.sum_btn.configure(state="disabled")
-        self.stream = sd.RawInputStream(
-            samplerate=SAMPLE_RATE,
-            dtype=AUDIO_FORMAT,
-            channels=CHANNELS,
-            callback=self.audio_callback
-        )
+        self.sum_btn.configure(state="disabled")  # deaktif et
+        self.stream = sd.RawInputStream(samplerate=SAMPLE_RATE, dtype=AUDIO_FORMAT, channels=CHANNELS, callback=self.audio_callback)
         self.stream.start()
 
     def stop_recording(self):
         self.stream.stop()
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
-        self.sum_btn.configure(state="normal")
+        self.sum_btn.configure(state="normal")  # tekrar aktif et
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             wav_path = tmp.name
@@ -140,12 +140,7 @@ class PatientSumApp(ctk.CTk):
         if self.trans_model.get() == 'whisper_api':
             try:
                 with open(wav_path, 'rb') as f:
-                    resp = client.audio.transcriptions.create(
-                        file=f,
-                        model="whisper-1",
-                        response_format="text",
-                        language=self.lang.get()
-                    )
+                    resp = client.audio.transcriptions.create(file=f, model="whisper-1", response_format="text", language=self.lang.get())
                 transcript = resp.strip()
             except OpenAIError as e:
                 messagebox.showerror("Whisper API Error", str(e))
