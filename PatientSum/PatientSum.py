@@ -25,7 +25,8 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 AUDIO_FORMAT = 'int16'
 
-# Language options
+# Mode & language options
+MODE_OPTIONS = ["Online Whisper", "Offline Whisper"]
 LANG_OPTIONS = ["tr", "en", "ar", "es", "de", "fr"]
 
 class PatientSumApp(ctk.CTk):
@@ -36,7 +37,7 @@ class PatientSumApp(ctk.CTk):
         self.configure(fg_color="white")
         ctk.set_appearance_mode("light")
 
-        # Load Whisper model
+        # Load Whisper model once
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         try:
             self.whisper_model = whisper.load_model("medium", device=self.device)
@@ -44,41 +45,48 @@ class PatientSumApp(ctk.CTk):
             messagebox.showwarning("Whisper Load", f"Could not load model: {e}")
             self.whisper_model = None
 
-        # Main grid: two columns (transcript / summary)
+        # Configure main grid (2 columns: transcript / summary)
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Top control frame (holds all controls and buttons)
+        # Top controls frame
         ctrl = ctk.CTkFrame(self, fg_color="#e6f2ff")
         ctrl.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=5)
-        # Configure 8 columns: 0–3 = controls, 4 = spacer, 5–7 = buttons
+        # 8 columns: 0-1 controls, 2-3 lang, 4 spacer, 5-7 buttons
         for i in range(8):
             ctrl.grid_columnconfigure(i, weight=(1 if i == 4 else 0))
 
-        # 1) Online / Offline selection
-        self.trans_model = tk.StringVar(value="whisper_api")
-        ctk.CTkRadioButton(ctrl, text="Online Whisper",
-                           variable=self.trans_model, value="whisper_api",
-                           text_color="#003366")\
-            .grid(row=0, column=0, padx=5)
-        ctk.CTkRadioButton(ctrl, text="Offline Whisper",
-                           variable=self.trans_model, value="whisper_offline",
-                           text_color="#003366")\
-            .grid(row=0, column=1, padx=5)
+        # 1) Mode dropdown
+        ctk.CTkLabel(ctrl, text="Mode:", text_color="#003366")\
+            .grid(row=0, column=0, padx=(5,2))
+        self.trans_mode = tk.StringVar(value=MODE_OPTIONS[0])
+        ctk.CTkOptionMenu(ctrl,
+                          variable=self.trans_mode,
+                          values=MODE_OPTIONS,
+                          fg_color="#003366",
+                          button_color="white",
+                          button_hover_color="#e6f2ff",
+                          text_color="white")\
+            .grid(row=0, column=1, padx=(0,10))
 
-        # 2) Language selector
+        # 2) Language dropdown
         ctk.CTkLabel(ctrl, text="Language:", text_color="#003366")\
-            .grid(row=0, column=2, padx=(20,5))
-        self.lang = tk.StringVar(value="en")
-        ctk.CTkOptionMenu(ctrl, variable=self.lang, values=LANG_OPTIONS,
-                          fg_color="#003366", button_color="white",
-                          button_hover_color="#e6f2ff", text_color="white")\
-            .grid(row=0, column=3)
+            .grid(row=0, column=2, padx=(5,2))
+        self.lang = tk.StringVar(value=LANG_OPTIONS[1])
+        ctk.CTkOptionMenu(ctrl,
+                          variable=self.lang,
+                          values=LANG_OPTIONS,
+                          fg_color="#003366",
+                          button_color="white",
+                          button_hover_color="#e6f2ff",
+                          text_color="white")\
+            .grid(row=0, column=3, padx=(0,10))
 
-        # 3) Spacer at column 4 takes all extra space
+        # 3) Spacer at column 4 (expands)
+        # already configured above
 
-        # 4) Start / Stop / Summarize buttons at fixed right columns
+        # 4) Buttons: Start / Stop / Summarize
         self.start_btn = ctk.CTkButton(ctrl, text="Start",
                                        command=self.start_recording,
                                        fg_color="#003366", hover_color="#005599")
@@ -95,14 +103,14 @@ class PatientSumApp(ctk.CTk):
         self.stop_btn.grid(row=0, column=6, padx=5, sticky="e")
         self.sum_btn.grid(row=0, column=7, padx=5, sticky="e")
 
-        # Transcript area (left)
+        # Transcript panel
         lbl_trans = ctk.CTkLabel(self, text="Transcript:", font=("Helvetica", 18), text_color="#003366")
         lbl_trans.grid(row=1, column=0, sticky="nw", padx=10)
         self.transcript_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18),
                                            bg="white", fg="#003366")
         self.transcript_box.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0,5))
 
-        # Summary area (right)
+        # Summary panel
         lbl_sum = ctk.CTkLabel(self, text="Summary:", font=("Helvetica", 18), text_color="#003366")
         lbl_sum.grid(row=1, column=1, sticky="nw", padx=10)
         self.summary_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18),
@@ -137,7 +145,6 @@ class PatientSumApp(ctk.CTk):
         self.stop_btn.configure(state="disabled")
         self.sum_btn.configure(state="normal")
 
-        # Write WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             wav_path = tmp.name
         with wave.open(wav_path, 'wb') as wf:
@@ -146,9 +153,8 @@ class PatientSumApp(ctk.CTk):
             wf.setframerate(SAMPLE_RATE)
             wf.writeframes(b''.join(self.audio_frames))
 
-        # Transcribe
         transcript = ""
-        if self.trans_model.get() == 'whisper_api':
+        if self.trans_mode.get() == "Online Whisper":
             try:
                 with open(wav_path, 'rb') as f:
                     resp = client.audio.transcriptions.create(
