@@ -54,19 +54,40 @@ class PatientSumApp(ctk.CTk):
 
         # Transcription mode radios
         self.trans_model = tk.StringVar(value="whisper_api")
-        ctk.CTkRadioButton(ctrl, text="Online Whisper", variable=self.trans_model, value="whisper_api", text_color="#003366").grid(row=0, column=0, padx=5)
-        ctk.CTkRadioButton(ctrl, text="Offline Whisper", variable=self.trans_model, value="whisper_offline", text_color="#003366").grid(row=0, column=1, padx=5)
+        ctk.CTkRadioButton(ctrl, text="Online Whisper", variable=self.trans_model, value="whisper_api", text_color="#003366")\
+            .grid(row=0, column=0, padx=5)
+        ctk.CTkRadioButton(ctrl, text="Offline Whisper", variable=self.trans_model, value="whisper_offline", text_color="#003366")\
+            .grid(row=0, column=1, padx=5)
 
         # Language selector
         ctk.CTkLabel(ctrl, text="Language:", text_color="#003366").grid(row=0, column=2, padx=(20,5))
         self.lang = tk.StringVar(value="en")
-        ctk.CTkOptionMenu(ctrl, variable=self.lang, values=LANG_OPTIONS, fg_color="#003366", button_color="white", button_hover_color="#e6f2ff", text_color="white").grid(row=0, column=3)
+        ctk.CTkOptionMenu(
+            ctrl,
+            variable=self.lang,
+            values=LANG_OPTIONS,
+            fg_color="#003366",
+            button_color="white",
+            button_hover_color="#e6f2ff",
+            text_color="white"
+        ).grid(row=0, column=3)
 
         # Start/Stop buttons
         self.start_btn = ctk.CTkButton(ctrl, text="Start", command=self.start_recording, fg_color="#003366", hover_color="#005599")
-        self.stop_btn = ctk.CTkButton(ctrl, text="Stop", command=self.stop_recording, state="disabled", fg_color="#003366", hover_color="#005599")
+        self.stop_btn  = ctk.CTkButton(ctrl, text="Stop",  command=self.stop_recording,  state="disabled", fg_color="#003366", hover_color="#005599")
         self.start_btn.grid(row=0, column=4, padx=10)
         self.stop_btn.grid(row=0, column=5, padx=5)
+
+        # Summarize button moved to top controls
+        self.sum_btn = ctk.CTkButton(
+            ctrl,
+            text="Summarize",
+            command=self.generate_summary,
+            state="disabled",
+            fg_color="#003366",
+            hover_color="#005599"
+        )
+        self.sum_btn.grid(row=0, column=6, padx=5)
 
         # Transcript area (left)
         lbl_trans = ctk.CTkLabel(self, text="Transcript:", font=("Helvetica", 18), text_color="#003366")
@@ -79,10 +100,6 @@ class PatientSumApp(ctk.CTk):
         lbl_sum.grid(row=1, column=1, sticky="nw", padx=10)
         self.summary_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18), bg="white", fg="#003366")
         self.summary_box.grid(row=2, column=1, sticky="nsew", padx=10, pady=(0,5))
-
-        # Summarize button below both
-        self.sum_btn = ctk.CTkButton(self, text="Summarize", command=self.generate_summary, state="disabled", fg_color="#003366", hover_color="#005599")
-        self.sum_btn.grid(row=3, column=0, columnspan=2, pady=10)
 
         self.audio_frames = []
 
@@ -97,7 +114,12 @@ class PatientSumApp(ctk.CTk):
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
         self.sum_btn.configure(state="disabled")
-        self.stream = sd.RawInputStream(samplerate=SAMPLE_RATE, dtype=AUDIO_FORMAT, channels=CHANNELS, callback=self.audio_callback)
+        self.stream = sd.RawInputStream(
+            samplerate=SAMPLE_RATE,
+            dtype=AUDIO_FORMAT,
+            channels=CHANNELS,
+            callback=self.audio_callback
+        )
         self.stream.start()
 
     def stop_recording(self):
@@ -118,7 +140,12 @@ class PatientSumApp(ctk.CTk):
         if self.trans_model.get() == 'whisper_api':
             try:
                 with open(wav_path, 'rb') as f:
-                    resp = client.audio.transcriptions.create(file=f, model="whisper-1", response_format="text", language=self.lang.get())
+                    resp = client.audio.transcriptions.create(
+                        file=f,
+                        model="whisper-1",
+                        response_format="text",
+                        language=self.lang.get()
+                    )
                 transcript = resp.strip()
             except OpenAIError as e:
                 messagebox.showerror("Whisper API Error", str(e))
@@ -156,7 +183,12 @@ Patient transcription:
 {text}
 """
         try:
-            resp = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role":"system","content":sys_msg}, {"role":"user","content":prompt}], temperature=0.2, max_tokens=300)
+            resp = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role":"system","content":sys_msg}, {"role":"user","content":prompt}],
+                temperature=0.2,
+                max_tokens=300
+            )
             summary = resp.choices[0].message.content
         except OpenAIError as e:
             summary = f"API error: {e}"
