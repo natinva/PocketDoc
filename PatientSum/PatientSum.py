@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import tempfile
 import wave
@@ -43,73 +44,76 @@ class PatientSumApp(ctk.CTk):
             messagebox.showwarning("Whisper Load", f"Could not load model: {e}")
             self.whisper_model = None
 
-        # Layout configuration
+        # Main grid: two columns (transcript / summary)
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Top controls frame
+        # Top control frame (holds all controls and buttons)
         ctrl = ctk.CTkFrame(self, fg_color="#e6f2ff")
         ctrl.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=5)
-        # make sure column 6 has space
-        for col in range(7):
-            ctrl.grid_columnconfigure(col, weight=0)
+        # Configure 8 columns: 0–3 = controls, 4 = spacer, 5–7 = buttons
+        for i in range(8):
+            ctrl.grid_columnconfigure(i, weight=(1 if i == 4 else 0))
 
-        # Transcription mode radios
+        # 1) Online / Offline selection
         self.trans_model = tk.StringVar(value="whisper_api")
-        ctk.CTkRadioButton(ctrl, text="Online Whisper",  variable=self.trans_model, value="whisper_api",  text_color="#003366")\
+        ctk.CTkRadioButton(ctrl, text="Online Whisper",
+                           variable=self.trans_model, value="whisper_api",
+                           text_color="#003366")\
             .grid(row=0, column=0, padx=5)
-        ctk.CTkRadioButton(ctrl, text="Offline Whisper", variable=self.trans_model, value="whisper_offline", text_color="#003366")\
+        ctk.CTkRadioButton(ctrl, text="Offline Whisper",
+                           variable=self.trans_model, value="whisper_offline",
+                           text_color="#003366")\
             .grid(row=0, column=1, padx=5)
 
-        # Language selector
+        # 2) Language selector
         ctk.CTkLabel(ctrl, text="Language:", text_color="#003366")\
             .grid(row=0, column=2, padx=(20,5))
         self.lang = tk.StringVar(value="en")
-        ctk.CTkOptionMenu(
-            ctrl,
-            variable=self.lang,
-            values=LANG_OPTIONS,
-            fg_color="#003366",
-            button_color="white",
-            button_hover_color="#e6f2ff",
-            text_color="white"
-        ).grid(row=0, column=3)
+        ctk.CTkOptionMenu(ctrl, variable=self.lang, values=LANG_OPTIONS,
+                          fg_color="#003366", button_color="white",
+                          button_hover_color="#e6f2ff", text_color="white")\
+            .grid(row=0, column=3)
 
-        # Start/Stop buttons
-        self.start_btn = ctk.CTkButton(ctrl, text="Start", command=self.start_recording, fg_color="#003366", hover_color="#005599")
-        self.stop_btn  = ctk.CTkButton(ctrl, text="Stop",  command=self.stop_recording,  state="disabled", fg_color="#003366", hover_color="#005599")
-        self.start_btn.grid(row=0, column=4, padx=10)
-        self.stop_btn.grid(row=0, column=5, padx=5)
+        # 3) Spacer at column 4 takes all extra space
 
-        # Summarize button — artık hep görünür, disable’ı start/stop’da ayarlanıyor
-        self.sum_btn = ctk.CTkButton(
-            ctrl,
-            text="Summarize",
-            command=self.generate_summary,
-            fg_color="#003366",
-            hover_color="#005599"
-        )
-        self.sum_btn.grid(row=0, column=6, padx=5)
-        # başlangıçta pasif et
-        self.sum_btn.configure(state="disabled")
+        # 4) Start / Stop / Summarize buttons at fixed right columns
+        self.start_btn = ctk.CTkButton(ctrl, text="Start",
+                                       command=self.start_recording,
+                                       fg_color="#003366", hover_color="#005599")
+        self.stop_btn  = ctk.CTkButton(ctrl, text="Stop",
+                                       command=self.stop_recording,
+                                       state="disabled",
+                                       fg_color="#003366", hover_color="#005599")
+        self.sum_btn   = ctk.CTkButton(ctrl, text="Summarize",
+                                       command=self.generate_summary,
+                                       state="disabled",
+                                       fg_color="#003366", hover_color="#005599")
 
-        # Transcript area
+        self.start_btn.grid(row=0, column=5, padx=5, sticky="e")
+        self.stop_btn.grid(row=0, column=6, padx=5, sticky="e")
+        self.sum_btn.grid(row=0, column=7, padx=5, sticky="e")
+
+        # Transcript area (left)
         lbl_trans = ctk.CTkLabel(self, text="Transcript:", font=("Helvetica", 18), text_color="#003366")
         lbl_trans.grid(row=1, column=0, sticky="nw", padx=10)
-        self.transcript_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18), bg="white", fg="#003366")
+        self.transcript_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18),
+                                           bg="white", fg="#003366")
         self.transcript_box.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0,5))
 
-        # Summary area
+        # Summary area (right)
         lbl_sum = ctk.CTkLabel(self, text="Summary:", font=("Helvetica", 18), text_color="#003366")
         lbl_sum.grid(row=1, column=1, sticky="nw", padx=10)
-        self.summary_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18), bg="white", fg="#003366")
+        self.summary_box = ScrolledText(self, wrap=tk.WORD, font=("Helvetica", 18),
+                                        bg="white", fg="#003366")
         self.summary_box.grid(row=2, column=1, sticky="nsew", padx=10, pady=(0,5))
 
         self.audio_frames = []
 
     def audio_callback(self, indata, frames, time, status):
-        if status: print(status)
+        if status:
+            print(status)
         self.audio_frames.append(bytes(indata))
 
     def start_recording(self):
@@ -118,16 +122,22 @@ class PatientSumApp(ctk.CTk):
         self.audio_frames.clear()
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
-        self.sum_btn.configure(state="disabled")  # deaktif et
-        self.stream = sd.RawInputStream(samplerate=SAMPLE_RATE, dtype=AUDIO_FORMAT, channels=CHANNELS, callback=self.audio_callback)
+        self.sum_btn.configure(state="disabled")
+        self.stream = sd.RawInputStream(
+            samplerate=SAMPLE_RATE,
+            dtype=AUDIO_FORMAT,
+            channels=CHANNELS,
+            callback=self.audio_callback
+        )
         self.stream.start()
 
     def stop_recording(self):
         self.stream.stop()
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
-        self.sum_btn.configure(state="normal")  # tekrar aktif et
+        self.sum_btn.configure(state="normal")
 
+        # Write WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             wav_path = tmp.name
         with wave.open(wav_path, 'wb') as wf:
@@ -136,11 +146,14 @@ class PatientSumApp(ctk.CTk):
             wf.setframerate(SAMPLE_RATE)
             wf.writeframes(b''.join(self.audio_frames))
 
-        transcript = ''
+        # Transcribe
+        transcript = ""
         if self.trans_model.get() == 'whisper_api':
             try:
                 with open(wav_path, 'rb') as f:
-                    resp = client.audio.transcriptions.create(file=f, model="whisper-1", response_format="text", language=self.lang.get())
+                    resp = client.audio.transcriptions.create(
+                        file=f, model="whisper-1", response_format="text", language=self.lang.get()
+                    )
                 transcript = resp.strip()
             except OpenAIError as e:
                 messagebox.showerror("Whisper API Error", str(e))
@@ -168,15 +181,13 @@ class PatientSumApp(ctk.CTk):
         self.summary_box.insert(tk.END, "Generating summary...\n")
 
         sys_msg = "You are a helpful medical assistant. Respond in same language as the note."
-        prompt = f"""
-Summarize the following patient note, including:
-1. Key history and exam findings.
-2. Two to three possible differential diagnoses.
-3. Recommended laboratory or imaging tests.
-
-Patient transcription:
-{text}
-"""
+        prompt = (
+            "Summarize the following patient note, including:\n"
+            "1. Key history and exam findings.\n"
+            "2. Two to three possible differential diagnoses.\n"
+            "3. Recommended laboratory or imaging tests.\n\n"
+            f"Patient transcription:\n{text}"
+        )
         try:
             resp = client.chat.completions.create(
                 model="gpt-3.5-turbo",
