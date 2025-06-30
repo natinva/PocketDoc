@@ -6,7 +6,7 @@ from PIL import Image, ImageTk
 
 
 class YOLOSegmentationApp:
-    def __init__(self, window, video_source=0, model_path="/Users/avnitan/Downloads/Modeller/Medical Aesthetic/Dark Circles.pt"):
+    def __init__(self, window, video_source=0, model_path="/Users/avnitan/Downloads/Modeller/Medical Aesthetic/Wrinkles.pt"):
         self.window = window
         self.window.title("YOLOv8 Segmentation Live Inference")
         self.video_source = video_source
@@ -79,5 +79,5 @@ class YOLOSegmentationApp:
 if __name__ == '__main__':
     root = tk.Tk()
     # Update "your_model.pt" with the path to your trained YOLOv8 segmentation model file.
-    app = YOLOSegmentationApp(root, video_source=0, model_path="/Users/avnitan/Downloads/Modeller/Medical Aesthetic/Dark Circles.pt")
+    app = YOLOSegmentationApp(root, video_source=0, model_path="/Users/avnitan/Downloads/Modeller/Medical Aesthetic/Wrinkles.pt")
     root.mainloop()
