@@ -10,16 +10,27 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 import time
 import io
+import os
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# Register League Spartan, which has Turkish glyphs
-pdfmetrics.registerFont(
-    TTFont(
-        "LeagueSpartan-SemiBold",
-        "/Users/avnitan/Downloads/League_Spartan/static/LeagueSpartan-SemiBold.ttf"
-    )
+# ─── find your repo root (one level above "Medikal Estetik") ──────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))            # .../PocketDoc/Medikal Estetik
+REPO_ROOT = os.path.normpath(os.path.join(BASE_DIR, ".."))       # .../PocketDoc
+
+FONT_PATH = os.path.join(
+    REPO_ROOT,
+    "Fonts", "League_Spartan", "static",
+    "LeagueSpartan-SemiBold.ttf"
 )
+# optional sanity check:
+if not os.path.exists(FONT_PATH):
+    raise FileNotFoundError(f"Cannot find font at {FONT_PATH!r}")
+
+pdfmetrics.registerFont(
+    TTFont("LeagueSpartan-SemiBold", FONT_PATH)
+)
+
 
 def export_pdf(pil_img, report_text, filename="report.pdf"):
     import io
@@ -56,7 +67,6 @@ def export_pdf(pil_img, report_text, filename="report.pdf"):
         text.textLine(line)
     c.drawText(text)
 
-    # Finish up
     c.save()
     messagebox.showinfo("PDF Saved", f"Report saved to {filename}")
 

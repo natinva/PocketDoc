@@ -16,10 +16,24 @@ from reportlab.pdfbase.ttfonts import TTFont
 last_report_output = ""
 last_pil_img = None
 
-# point to a .ttf on your system that includes Turkish glyphs
+import os
+# whenever you run this script, __file__ is:
+#   .../Medikal Estetik/Yüz Altın Oran Ölçümü/Yüz Altın Oran.py
+SCRIPT_DIR = os.path.dirname(__file__)
+FONT_PATH = os.path.abspath(os.path.join(
+    SCRIPT_DIR,
+    os.pardir,               # up from ".../Yüz Altın Oran Ölçümü/"
+    os.pardir,               # up from ".../Medikal Estetik/"
+    "Fonts", "League_Spartan", "static",
+    "LeagueSpartan-SemiBold.ttf"
+))
+
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 pdfmetrics.registerFont(
-    TTFont("LeagueSpartan-SemiBold", "/Users/avnitan/Downloads/League_Spartan/static/LeagueSpartan-SemiBold.ttf")
+    TTFont("LeagueSpartan-SemiBold", FONT_PATH)
 )
+
 
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
