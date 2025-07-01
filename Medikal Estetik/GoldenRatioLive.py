@@ -5,6 +5,60 @@ import math
 import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 import tkinter.messagebox as messagebox
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+import time
+import io
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# Register League Spartan, which has Turkish glyphs
+pdfmetrics.registerFont(
+    TTFont(
+        "LeagueSpartan-SemiBold",
+        "/Users/avnitan/Downloads/League_Spartan/static/LeagueSpartan-SemiBold.ttf"
+    )
+)
+
+def export_pdf(pil_img, report_text, filename="report.pdf"):
+    import io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    from tkinter import messagebox
+
+    # Save the PIL image into a bytes buffer
+    buf = io.BytesIO()
+    pil_img.save(buf, format="PNG")
+    buf.seek(0)
+    img_reader = ImageReader(buf)
+
+    # Create the PDF canvas
+    c = canvas.Canvas(filename, pagesize=letter)
+    pw, ph = letter
+
+    # Draw the image on the left half of the page
+    iw, ih = pil_img.size
+    max_w, max_h = pw/2 - 40, ph - 80
+    scale = min(max_w/iw, max_h/ih)
+    c.drawImage(img_reader,
+                x=20,
+                y=ph - ih*scale - 40,
+                width=iw*scale,
+                height=ih*scale)
+
+    # Draw the report text on the right half, using your Turkish-capable font
+    c.setFont("LeagueSpartan-SemiBold", 10)
+    text = c.beginText(pw/2 + 20, ph - 40)
+    text.setLeading(14)
+    for line in report_text.splitlines():
+        text.textLine(line)
+    c.drawText(text)
+
+    # Finish up
+    c.save()
+    messagebox.showinfo("PDF Saved", f"Report saved to {filename}")
 
 # ─── Set up MediaPipe FaceMesh ─────────────────────────────────────────────
 mp_face_mesh = mp.solutions.face_mesh
@@ -763,6 +817,18 @@ def generate_report():
     # Optionally, you can set a minimum size for the popup so that the
     # full‐res image is visible without immediate cropping:
     popup.minsize(pil_overlay.width + 20, pil_overlay.height + 200)
+
+    # … your existing code that creates popup, img_label and text_widget …
+
+    # ─── Download Button ───────────────────────────────
+    def on_download():
+        # popup variables are in this scope:
+        export_pdf(pil_overlay, report_text,
+                   f"YuzRapor_{time.strftime('%Y%m%d_%H%M%S')}.pdf")
+
+    download_btn = tk.Button(popup, text="Download as PDF", command=on_download)
+    download_btn.pack(pady=5)
+
 
 # ─── Build the Tkinter UI ───────────────────────────────────────────────────
 root = tk.Tk()
