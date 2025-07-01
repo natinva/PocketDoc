@@ -1,0 +1,5 @@
+git clone https://github.com/natinva/PocketDoc.git PocketDoc && \
+cd PocketDoc/Medikal\ Estetik && \
+printf "opencv-python\ntorch\nultralytics\ncustomtkinter\npillow\n" > requirements.txt && \
+pip3 install -r requirements.txt && \
+python3 aesthetic_pathology_detector.py
