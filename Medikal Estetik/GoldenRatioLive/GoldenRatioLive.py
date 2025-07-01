@@ -14,17 +14,17 @@ import os
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# ─── find your repo root (one level above "Medikal Estetik") ──────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))            # .../PocketDoc/Medikal Estetik
-REPO_ROOT = os.path.normpath(os.path.join(BASE_DIR, ".."))       # .../PocketDoc
+# where this script lives
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-FONT_PATH = os.path.join(
-    REPO_ROOT,
-    "Fonts", "League_Spartan", "static",
-    "LeagueSpartan-SemiBold.ttf"
+# go up two levels (from GoldenRatioLive/ → Medikal Estetik/ → PocketDoc/)
+# then into Fonts/League_Spartan/static/
+FONT_PATH = os.path.normpath(
+    os.path.join(SCRIPT_DIR, "..", "..", "Fonts", "League_Spartan", "static",
+                 "LeagueSpartan-SemiBold.ttf")
 )
-# optional sanity check:
-if not os.path.exists(FONT_PATH):
+
+if not os.path.isfile(FONT_PATH):
     raise FileNotFoundError(f"Cannot find font at {FONT_PATH!r}")
 
 pdfmetrics.registerFont(

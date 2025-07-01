@@ -1,5 +1,5 @@
 opencv-python
-torch
-ultralytics
-customtkinter
+mediapipe
+numpy
 pillow
+reportlab

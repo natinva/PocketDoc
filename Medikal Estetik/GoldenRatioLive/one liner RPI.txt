@@ -1,0 +1,4 @@
+git clone https://github.com/natinva/PocketDoc.git \
+  && cd PocketDoc/Medikal\ Estetik/GoldenRatioLive \
+  && pip3 install -r requirements.txt \
+  && python3 GoldenRatioLive.py
