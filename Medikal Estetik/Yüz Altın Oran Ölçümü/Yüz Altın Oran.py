@@ -5,6 +5,21 @@ import math
 import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageTk
+import io
+from tkinter import Toplevel, Frame, Button, Text, Scrollbar, BOTH, LEFT, RIGHT, TOP, Y, END, WORD, messagebox
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+last_report_output = ""
+last_pil_img = None
+
+# point to a .ttf on your system that includes Turkish glyphs
+pdfmetrics.registerFont(
+    TTFont("LeagueSpartan-SemiBold", "/Users/avnitan/Downloads/League_Spartan/static/LeagueSpartan-SemiBold.ttf")
+)
 
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
@@ -541,6 +556,26 @@ def calculate_mouth_nose_ratio():
             nose_width = math.sqrt((left_nose_wing.x - right_nose_wing.x) ** 2 + (left_nose_wing.y - right_nose_wing.y) ** 2)
             return mouth_width / nose_width if nose_width != 0 else 0
     return 0
+def export_pdf(image: Image.Image, report: str, filename="analysis_report.pdf"):
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    buf.seek(0)
+    img_reader = ImageReader(buf)
+    c = canvas.Canvas(filename, pagesize=letter)
+    c.setFont("LeagueSpartan-SemiBold", 12)
+    pw, ph = letter
+    iw, ih = image.size
+    max_w, max_h = pw/2 - 40, ph - 80
+    scale = min(max_w/iw, max_h/ih)
+    dw, dh = iw*scale, ih*scale
+    c.drawImage(img_reader, 20, ph - dh - 40, width=dw, height=dh)
+    text = c.beginText(pw/2+20, ph-40)
+    text.setLeading(14)
+    for line in report.splitlines():
+        text.textLine(line)
+    c.drawText(text)
+    c.save()
+    messagebox.showinfo("PDF Saved", f"Report saved as {filename}")
 
 def calculate_jawline_to_face_width_ratio():
     rgb_image = cv2.cvtColor(loaded_image, cv2.COLOR_BGR2RGB)
@@ -564,13 +599,21 @@ IDEAL_VALUES = {
     "Ağız/Burun Oranı": 1.618,
     "Çene Hattı-Yüz Genişliği Oranı": 2.0
 }
+import datetime
+
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f"YuzAnaliz_{timestamp}.pdf"
+
 
 
 def analyze_ratios():
+    global last_report_output, last_pil_img, root
+
     if loaded_image is None:
         result_text.set("Lütfen önce bir resim yükleyin.")
         return
 
+    # 1) Compute all your ratios
     ratios = {
         "Burun-Dudak-Çene Oranı": calculate_nose_lips_chin_ratio(),
         "Göz Simetrisi Oranı": calculate_eye_symmetry_ratio(),
@@ -581,31 +624,52 @@ def analyze_ratios():
         "Çene Hattı-Yüz Genişliği Oranı": calculate_jawline_to_face_width_ratio()
     }
 
-    deviations = []  # List to store each deviation percentage for averaging
-    result_output = "Yüz Simetrisi Analiz Raporu\n"
-    result_output += "=" * 35 + "\n\n"
+    # 2) Build the textual report
+    deviations = []
+    result_output = "Yüz Simetrisi Analiz Raporu\n" + "=" * 35 + "\n\n"
+    for name, actual in ratios.items():
+        ideal = IDEAL_VALUES[name]
+        dev = abs((actual - ideal) / ideal) * 100 if ideal != 0 else 0
+        deviations.append(dev)
+        result_output += (
+            f"{name}:\n"
+            f"  - Gerçek Değer: {actual:.2f}\n"
+            f"  - İdeal Değer: {ideal}\n"
+            f"  - Sapma: {dev:.2f}%\n\n"
+        )
 
-    for ratio_name, actual_value in ratios.items():
-        ideal_value = IDEAL_VALUES[ratio_name]
-        deviation = abs((actual_value - ideal_value) / ideal_value) * 100
-        deviations.append(deviation)
-
-        result_output += f"{ratio_name}:\n"
-        result_output += f"  - Gerçek Değer: {actual_value:.2f}\n"
-        result_output += f"  - İdeal Değer: {ideal_value}\n"
-        result_output += f"  - Sapma: {deviation:.2f}%\n\n"
-
-    average_deviation = sum(deviations) / len(deviations)
-    golden_ratio_score = 100 - average_deviation
-
+    avg_dev = sum(deviations) / len(deviations)
+    score = 100 - avg_dev
     result_output += "=" * 35 + "\n"
-    result_output += f"Altın Oran Skoru: {golden_ratio_score:.2f}%\n"
+    result_output += f"Altın Oran Skoru: {score:.2f}%\n"
     result_output += "=" * 35
 
+    # 3) Update the on-screen text widget
     result_text.set(result_output)
     print("selam")
 
+    # 4) Build a PIL image with all 468 landmarks
+    rgb = cv2.cvtColor(loaded_image, cv2.COLOR_BGR2RGB)
+    res = face_mesh.process(rgb)
+    if res.multi_face_landmarks:
+        img_land = loaded_image.copy()
+        h, w = img_land.shape[:2]
+        for lm in res.multi_face_landmarks[0].landmark:
+            x, y = int(lm.x * w), int(lm.y * h)
+            cv2.circle(img_land, (x, y), 1, (255, 255, 255), -1)
+        pil_img = Image.fromarray(cv2.cvtColor(img_land, cv2.COLOR_BGR2RGB))
+    else:
+        # fallback if no face found
+        pil_img = Image.fromarray(cv2.cvtColor(loaded_image, cv2.COLOR_BGR2RGB))
+    last_report_output = result_output
+    last_pil_img = pil_img
 
+def on_download():
+    if last_pil_img is None:
+        messagebox.showwarning("No report", "Lütfen önce Analiz Yapın.")
+        return
+    timestamp = datetime.datetime.now().strftime("YuzAnaliz_%Y%m%d_%H%M%S.pdf")
+    export_pdf(last_pil_img, last_report_output, timestamp)
 
 
 def display_image(image):
@@ -661,6 +725,9 @@ result_text = tk.StringVar()
 
 analyze_button = tk.Button(root, text="Analyze Ratios", command=analyze_ratios)
 analyze_button.pack()
+
+download_btn = tk.Button(root, text="Download the Report", command=on_download)
+download_btn.pack(pady=5)
 
 result_label = tk.Label(root, textvariable=result_text, justify="left", font=("Helvetica", 10))
 result_label.pack()
