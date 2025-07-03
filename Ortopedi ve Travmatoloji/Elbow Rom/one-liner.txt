@@ -1,0 +1,5 @@
+git clone https://github.com/natinva/PocketDoc.git && \
+cd PocketDoc/"Ortopedi ve Travmatoloji"/"Elbow Rom" && \
+sudo apt-get update && sudo apt-get install -y python3-tk && \
+pip3 install -r requirements.txt && \
+python3 "elbow rom.py"
