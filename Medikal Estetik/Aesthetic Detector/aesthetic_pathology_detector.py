@@ -70,32 +70,19 @@ class App(ctk.CTk):
         self.title("Medical Aesthetic Detector")
         self.geometry("900x700")
 
-        # 1) Point repo to the actual PocketDoc root
-        # __file__ is .../PocketDoc/Medikal Estetik/Aesthetic Detector/...
-        repo = Path(__file__).resolve().parents[3]
-
-        # 2) Register custom font for PDF
-        font_path = repo / "Fonts" / "League_Spartan" / "static" / "LeagueSpartan-SemiBold.ttf"
+        # Register custom font for PDF
+        repo = Path(__file__).resolve().parents[2]
+        font_path = repo / "Fonts/League_Spartan/static/LeagueSpartan-SemiBold.ttf"
         pdfmetrics.registerFont(TTFont("LeagueSpartan", str(font_path)))
 
-        # 3) Load models from the correct folder, using exact filenames
+        # Load models
         models_dir = repo / "Modeller" / "Medical Aesthetic"
         file_names = {
-            "Acne": "Acne.pt",
-            "Blackheads": "Blackheads.pt",
-            "Dark Circles": "Dark Circles.pt",
-            "Pigmentation": "Pigmentation.pt",
-            "Wrinkles": "Wrinkles.pt",
-            "Pore": "pore.pt",
-            "Redness": "redness.pt",
+            "Acne":"acne.pt","Blackheads":"Blackheads.pt","Dark Circles":"Dark Circles.pt",
+            "Pigmentation":"Pigmentation.pt","Wrinkles":"Wrinkles.pt","Pore":"pore.pt","Redness":"redness.pt"
         }
-        self.models = {
-            name: YOLO(str(models_dir / fname))
-            for name, fname in file_names.items()
-        }
+        self.models = {name: YOLO(str(models_dir / fname)) for name, fname in file_names.items()}
         self.current_model = next(iter(self.models))
-
-        # ...rest of your init remains unchanged...
 
         # Control panel
         ctrl = ctk.CTkFrame(self)
