@@ -1,0 +1,6 @@
+opencv-python
+torch
+ultralytics
+customtkinter
+Pillow
+reportlab
