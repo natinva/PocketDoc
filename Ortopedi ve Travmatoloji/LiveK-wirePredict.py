@@ -5,15 +5,17 @@ import numpy as np
 from ultralytics import YOLO
 from PIL import Image, ImageTk
 import math
+from pathlib import Path
 
 # ---------------------------
 # Global: Load your YOLOv8 segmentation model
 # ---------------------------
-MODEL_PATH = "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Modeller/k-teli.pt"
+MODEL_PATH = Path(__file__).resolve().parents[1] / "Modeller" / "k-teli.pt"
 try:
-    model = YOLO(MODEL_PATH)
+    model = YOLO(str(MODEL_PATH))
 except Exception as e:
     raise RuntimeError(f"Could not load model from {MODEL_PATH}: {e}")
+
 
 
 # ---------------------------
