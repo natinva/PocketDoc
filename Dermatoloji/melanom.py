@@ -3,17 +3,20 @@ from tkinter import messagebox
 import cv2
 from ultralytics import YOLO
 from PIL import Image, ImageTk
-
+from pathlib import Path
 
 class YOLOSegmentationApp:
-    def __init__(self, window, video_source=0, model_path="/Users/avnitan/Downloads/Modeller/melanom.pt"):
+    def __init__(self, window, video_source=0, model_path=None):
         self.window = window
         self.window.title("YOLOv12 Live Inference")
         self.video_source = video_source
 
+        if model_path is None:
+            model_path = Path(__file__).resolve().parents[1] / "Modeller" / "melanom.pt"
+
         # Load the YOLO model
         try:
-            self.model = YOLO(model_path)
+            self.model = YOLO(str(model_path))
         except Exception as e:
             messagebox.showerror("Model Load Error", f"Could not load model: {e}")
             self.window.destroy()
@@ -116,6 +119,6 @@ class YOLOSegmentationApp:
 
 if __name__ == '__main__':
     root = tk.Tk()
-    # Update the model path as necessary.
-    app = YOLOSegmentationApp(root, video_source=0, model_path="/Users/avnitan/Downloads/Modeller/melanom.pt")
+    # The model path defaults to Modeller/melanom.pt relative to this file.
+    app = YOLOSegmentationApp(root, video_source=0)
     root.mainloop()
