@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 # ---------------------------
 # Load your YOLOv8 segmentation model
 # ---------------------------
-MODEL_PATH = "/Users/avnitan/Downloads/Fossa/best (3).pt"
+MODEL_PATH = "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Modeller/k-teli.pt"
 try:
     model = YOLO(MODEL_PATH)
 except Exception as e:
