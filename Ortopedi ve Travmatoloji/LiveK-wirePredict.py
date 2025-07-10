@@ -9,7 +9,7 @@ import math
 # ---------------------------
 # Global: Load your YOLOv8 segmentation model
 # ---------------------------
-MODEL_PATH = "/Users/avnitan/Downloads/Modeller/k-teli.pt"
+MODEL_PATH = "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Modeller/k-teli.pt"
 try:
     model = YOLO(MODEL_PATH)
 except Exception as e:
