@@ -18,3 +18,7 @@ customtkinter
 Pillow
 reportlab
 whisper
+fastapi==0.114.2
+uvicorn[standard]==0.30.6
+pillow==10.4.0
+numpy==1.26.4
