@@ -1,263 +1,283 @@
-import io, os, time, json, requests, hashlib
-from typing import Optional, Tuple
+import os
+import io
+import base64
+import hashlib
+import time
+from typing import Dict, Any, Optional
+
 import numpy as np
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import requests
+import cv2
+
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse
 
-# Optional backends
-try:
-    from ultralytics import YOLO
-    _HAS_YOLO = True
-except Exception:
-    _HAS_YOLO = False
+# ----------------------------
+# Config & Model URLs
+# ----------------------------
+API_ALLOWED_ORIGINS = [
+    "https://patientsum.com",
+    "https://www.patientsum.com",
+    "https://cepdoktorum.com",
+    "https://www.cepdoktorum.com",
+    "http://localhost:5173",
+    "http://localhost:5500",
+]
 
-try:
-    import torch
-    _HAS_TORCH = True
-except Exception:
-    _HAS_TORCH = False
+# You can set these on Render → Environment
+FRACTURE_URL = os.getenv(
+    "MODEL_FRACTURE_URL",
+    "https://github.com/natinva/PocketDoc/releases/download/Models/fracture.pt",
+)
+KNEE_URL = os.getenv(
+    "MODEL_KNEE_URL",
+    "https://github.com/natinva/PocketDoc/releases/download/Models/knee.pt",
+)
 
-ALLOWED_ORIGINS = ["https://patientsum.com", "https://www.patientsum.com"]
-WEIGHTS_DIR = os.path.join(os.getcwd(), "weights")
-os.makedirs(WEIGHTS_DIR, exist_ok=True)
+# If you bring melanoma back later, you can add it here
+MELANOMA_URL = os.getenv(
+    "MODEL_MELANOMA_URL",
+    "https://github.com/natinva/PocketDoc/releases/download/Models/melanom.pt",
+)
 
-app = FastAPI(title="PatientSum API (real models)")
+MODEL_DIR = os.getenv("MODEL_DIR", "/tmp/models")
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+# ----------------------------
+# App init
+# ----------------------------
+app = FastAPI(title="PatientSum Inference API", version="1.0.0")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=API_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------- Utility: downloads & loaders ----------
+# ----------------------------
+# Utilities
+# ----------------------------
+def _fname_from_url(url: str) -> str:
+    # stable filename even if url has query
+    h = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
+    base = url.split("/")[-1] or f"model-{h}.pt"
+    if not base.endswith(".pt"):
+        base = base + ".pt"
+    return f"{h}-{base}"
 
-def _download_if_needed(url: Optional[str]) -> Optional[str]:
+def _download_once(url: str) -> str:
+    """Download to MODEL_DIR if missing; return local path."""
     if not url:
-        return None
-    # deterministic file name from URL
-    h = hashlib.sha256(url.encode()).hexdigest()[:10]
-    fname = os.path.join(WEIGHTS_DIR, f"w_{h}" + os.path.splitext(url.split("?")[0])[-1])
-    if os.path.exists(fname) and os.path.getsize(fname) > 0:
-        return fname
+        raise RuntimeError("Empty model URL")
+    fname = _fname_from_url(url)
+    path = os.path.join(MODEL_DIR, fname)
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return path
     # stream download
-    with requests.get(url, stream=True, timeout=120) as r:
+    with requests.get(url, stream=True, timeout=300) as r:
         r.raise_for_status()
-        with open(fname, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1<<20):
+        with open(path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 256):
                 if chunk:
                     f.write(chunk)
-    return fname
+    return path
 
-def _load_model(path: Optional[str]):
-    if not path:
-        return None, None  # not provided
-    ext = os.path.splitext(path)[-1].lower()
-    # YOLO .pt
-    if ext == ".pt":
-        if not _HAS_YOLO:
-            raise RuntimeError("ultralytics not installed but .pt provided")
-        model = YOLO(path)
-        return ("yolo", model)
-    # TorchScript .ts
-    if ext == ".ts":
-        if not _HAS_TORCH:
-            raise RuntimeError("torch not installed but .ts provided")
-        m = torch.jit.load(path, map_location="cpu")
-        m.eval()
-        return ("torchscript", m)
-    # ONNX or others could be added here
-    raise RuntimeError(f"Unsupported weight extension: {ext}")
+def _to_data_url_png(img_rgb: np.ndarray) -> str:
+    """img_rgb expected in RGB uint8, return data:image/png;base64,..."""
+    if img_rgb is None:
+        return ""
+    if img_rgb.dtype != np.uint8:
+        img_rgb = np.clip(img_rgb, 0, 255).astype(np.uint8)
+    # cv2 wants BGR
+    bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+    ok, buf = cv2.imencode(".png", bgr)
+    if not ok:
+        raise RuntimeError("PNG encode failed")
+    return "data:image/png;base64," + base64.b64encode(buf.tobytes()).decode("utf-8")
 
-def _to_numpy(img: Image.Image, mode="xray", size=512) -> np.ndarray:
-    if mode == "xray" and img.mode != "L":
-        img = img.convert("L")
-    if mode != "xray" and img.mode != "RGB":
-        img = img.convert("RGB")
-    img = img.resize((size, size))
-    arr = np.asarray(img).astype("float32") / 255.0
-    return arr
-
-def _predict_yolo(model, img_np: np.ndarray) -> Tuple[str, float, dict]:
-    """
-    Supports both YOLO classification and detection.
-    - If classification head exists: use probs
-    - Else if detection: 'fracture' if any detection (or map by class name)
-    """
-    # YOLO wants BGR uint8 or path; use uint8 RGB
-    if img_np.ndim == 2:  # grayscale
-        rgb = np.stack([img_np, img_np, img_np], axis=-1)
-    else:
-        rgb = img_np
-    rgb8 = (rgb * 255).astype(np.uint8)
-
-    res = model.predict(rgb8, imgsz=512, verbose=False, device="cpu", conf=0.25)
-    r0 = res[0]
-
-    # classification?
-    if getattr(r0, "probs", None) is not None:
-        probs = r0.probs.data.cpu().numpy().astype("float32")
-        idx = int(np.argmax(probs))
-        conf = float(probs[idx])
-        # class names
-        names = getattr(model, "names", None) or getattr(r0, "names", None)
-        label = names[idx] if names and idx in names else f"class_{idx}"
-        return label, conf, {"mode":"classification"}
-
-    # detection?
-    if getattr(r0, "boxes", None) is not None and len(r0.boxes) > 0:
-        # pick the top box
-        confs = r0.boxes.conf.cpu().numpy().astype("float32")
-        cls = r0.boxes.cls.cpu().numpy().astype("int32")
-        top = int(np.argmax(confs))
-        conf = float(confs[top])
-        names = getattr(model, "names", None) or getattr(r0, "names", None)
-        cls_name = names[cls[top]] if names and cls[top] in names else f"class_{cls[top]}"
-        # If your model detects "fracture" boxes, use that name. Otherwise just return the top class.
-        return cls_name, conf, {"mode":"detection","n":len(r0.boxes)}
-    # No output
-    return "none", 0.0, {"mode":"none"}
-
-def _predict_torchscript(model, img_np: np.ndarray) -> Tuple[str, float, dict]:
-    """
-    Very generic TorchScript classification stub:
-    expects model(img: (1,C,H,W) float32) -> logits (1,K)
-    """
-    if not _HAS_TORCH:
-        raise RuntimeError("torch not available")
-    x = img_np
-    if x.ndim == 2:             # (H,W) gray
-        x = x[None, :, :]       # (1,H,W)
-    else:                       # (H,W,3) RGB
-        x = x.transpose(2,0,1)  # (3,H,W)
-    x = x[None, ...]            # (1,C,H,W)
-    xt = torch.from_numpy(x).float()
-    with torch.no_grad():
-        logits = model(xt)
-        if isinstance(logits, (list, tuple)): logits = logits[0]
-        probs = torch.softmax(logits, dim=1)[0]
-        conf, idx = float(probs.max().item()), int(probs.argmax().item())
-    return f"class_{idx}", conf, {"mode":"torchscript"}
-
-def _predict_backend(backend, model, img_np, label_map=None):
-    if backend == "yolo":
-        lab, conf, meta = _predict_yolo(model, img_np)
-        # Optional mapping: {"class_0": "no_fracture", "class_1":"fracture"} etc.
-        if label_map and lab in label_map:
-            lab = label_map[lab]
-        return lab, conf, meta
-    if backend == "torchscript":
-        lab, conf, meta = _predict_torchscript(model, img_np)
-        if label_map and lab in label_map:
-            lab = label_map[lab]
-        return lab, conf, meta
-    raise RuntimeError("Unknown backend")
-
-# ---------- Load your weights from ENV ----------
-
-MODELS = {
-    "fracture": {
-        "URL": os.getenv("FRAC_MODEL_URL", "").strip() or None,
-        "LABEL_MAP_JSON": os.getenv("FRAC_LABEL_MAP_JSON", "").strip() or None, # e.g. {"0":"no_fracture","1":"fracture"}
-        "MODE": os.getenv("FRAC_MODE", "xray"),  # xray/photo
-        "LOADED": None,     # (backend, model)
-        "LABEL_MAP": None,  # dict or None
-    },
-    "gonarthrosis": {
-        "URL": os.getenv("GON_MODEL_URL", "").strip() or None,
-        "LABEL_MAP_JSON": os.getenv("GON_LABEL_MAP_JSON", "").strip() or None, # e.g. {"0":"KL0","1":"KL1",...}
-        "MODE": os.getenv("GON_MODE", "xray"),
-        "LOADED": None,
-        "LABEL_MAP": None,
-    },
-    "melanoma": {
-        "URL": os.getenv("MEL_MODEL_URL", "").strip() or None,
-        "LABEL_MAP_JSON": os.getenv("MEL_LABEL_MAP_JSON", "").strip() or None, # e.g. {"0":"benign","1":"malignant"}
-        "MODE": os.getenv("MEL_MODE", "photo"),
-        "LOADED": None,
-        "LABEL_MAP": None,
-    },
+# ----------------------------
+# Load Ultralytics YOLO lazily
+# ----------------------------
+YOLO = None
+MODELS: Dict[str, Any] = {
+    "fracture": None,
+    "gonarthrosis": None,  # KL 0-4
+    # "melanoma": None,    # add back later if needed
+}
+MODEL_URLS: Dict[str, Optional[str]] = {
+    "fracture": FRACTURE_URL,
+    "gonarthrosis": KNEE_URL,
+    # "melanoma": MELANOMA_URL,
 }
 
-def _load_all_models():
-    for key, cfg in MODELS.items():
-        url = cfg["URL"]
-        if not url:
-            continue  # will use stub
-        try:
-            path = _download_if_needed(url)
-            backend, model = _load_model(path)
-            cfg["LOADED"] = (backend, model)
-            if cfg["LABEL_MAP_JSON"]:
-                try:
-                    cfg["LABEL_MAP"] = json.loads(cfg["LABEL_MAP_JSON"])
-                except Exception:
-                    cfg["LABEL_MAP"] = None
-            print(f"[INIT] Loaded {key} model via {backend} from {path}")
-        except Exception as e:
-            print(f"[INIT] Failed to load {key}: {e}")
+def load_yolo():
+    global YOLO
+    if YOLO is None:
+        from ultralytics import YOLO as _YOLO
+        YOLO = _YOLO
 
-_load_all_models()
+def load_model(task: str):
+    """Load a YOLO model for a given task if not loaded."""
+    if task not in MODELS:
+        raise RuntimeError(f"Unknown task: {task}")
+    if MODELS[task] is not None:
+        return MODELS[task]
+    load_yolo()
+    url = MODEL_URLS.get(task)
+    has_url = bool(url)
+    if has_url:
+        local = _download_once(url)
+        model = YOLO(local)
+    else:
+        raise RuntimeError(f"No URL for model '{task}'")
+    MODELS[task] = model
+    return model
 
-# ---------- Routes ----------
+def warmup_models():
+    """Optional: warmup both models once to reduce first-pred latency."""
+    try:
+        for t in ["fracture", "gonarthrosis"]:
+            m = load_model(t)
+            # warmup with tiny white image
+            dummy = np.full((320, 320, 3), 255, dtype=np.uint8)
+            _ = m(dummy)
+    except Exception:
+        # warmup is best-effort; don't crash startup
+        pass
 
+# Warm up in background-ish manner
+try:
+    warmup_models()
+except Exception:
+    pass
+
+# ----------------------------
+# Endpoints
+# ----------------------------
 @app.get("/healthz")
 def healthz():
-    return {"ok": True}
+    return {"ok": True, "ts": int(time.time())}
 
 @app.get("/models")
-def models():
-    return {
-        k: {
-            "has_url": bool(v["URL"]),
-            "loaded": bool(v["LOADED"]),
-            "backend": (v["LOADED"][0] if v["LOADED"] else None),
-            "mode": v["MODE"],
-            "label_map_keys": list(v["LABEL_MAP"].keys()) if v["LABEL_MAP"] else None
-        } for k,v in MODELS.items()
-    }
-
-def _predict_stub(task: str) -> Tuple[str, float, str, str]:
-    if task == "fracture":
-        return "no_fracture", 0.85, "Best with frontal/lateral X-rays.", "Does not replace radiologist/orthopedic evaluation."
-    if task == "gonarthrosis":
-        return "KL2", 0.70, "Weight-bearing AP knee recommended.", "KL grading is an estimate; confirm clinically."
-    return "benign", 0.80, "Dermoscopic photos recommended.", "Screening only; consult a dermatologist."
+def models_status():
+    out = {}
+    for name in ["fracture", "gonarthrosis", "melanoma"]:
+        url = MODEL_URLS.get(name)
+        loaded = MODELS.get(name) is not None
+        if name == "melanoma":
+            # currently disabled (per your last request to remove)
+            out[name] = {
+                "has_url": bool(url),
+                "loaded": False,
+                "backend": None,
+                "mode": "photo",
+                "label_map_keys": None,
+            }
+        else:
+            out[name] = {
+                "has_url": bool(url),
+                "loaded": loaded,
+                "backend": "yolo" if loaded else None,
+                "mode": "xray" if name in ("fracture", "gonarthrosis") else "photo",
+                "label_map_keys": ["0", "1"] if name == "fracture" else ["0", "1", "2", "3", "4"],
+            }
+    return out
 
 @app.post("/v1/predict")
 async def predict(file: UploadFile = File(...), task: str = Form(...)):
-    if task not in {"fracture","gonarthrosis","melanoma"}:
-        raise HTTPException(400,"task must be fracture | gonarthrosis | melanoma")
-    if not (file.filename.lower().endswith((".jpg",".jpeg",".png")) or (file.content_type or "").startswith("image/")):
-        raise HTTPException(400,"Upload JPG or PNG")
-    content = await file.read()
-    if len(content) > 15*1024*1024:
-        raise HTTPException(413,"File too large (max 15 MB)")
+    task = task.strip().lower()
+    if task not in MODELS:
+        return JSONResponse({"error": f"Unsupported task '{task}'"}, status_code=400)
+
+    # Read image
+    data = await file.read()
     try:
-        img = Image.open(io.BytesIO(content))
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+    except Exception as e:
+        return JSONResponse({"error": f"Invalid image: {e}"}, status_code=400)
+    img_np = np.array(img)
+
+    # Load model (lazy) & run
+    try:
+        model = load_model(task)
+        results = model(img_np)  # Ultralytics API
+        res = results[0]
+    except Exception as e:
+        return JSONResponse({"error": f"Inference failed: {e}"}, status_code=500)
+
+    # Build annotated image
+    try:
+        plotted = res.plot()  # Ultralytics returns RGB np.ndarray
+        # Some builds may return BGR; detect by a quick heuristic if needed
+        # We'll trust it's RGB; PNG encode downstream handles conversion
+        annotated_data_url = _to_data_url_png(plotted)
+        annotated_ok = True
     except Exception:
-        raise HTTPException(400,"Unreadable image")
+        # fallback: original
+        annotated_data_url = _to_data_url_png(img_np)
+        annotated_ok = False
 
-    cfg = MODELS[task]
-    details = {
-        "fracture": "Best with frontal/lateral X-rays.",
-        "gonarthrosis": "Weight-bearing AP knee recommended.",
-        "melanoma": "Use dermoscopic photos."
-    }[task]
-    caveat = {
-        "fracture": "Does not replace radiologist/orthopedic evaluation.",
-        "gonarthrosis": "KL grading is an estimate; confirm clinically.",
-        "melanoma": "Screening only; consult a dermatologist."
-    }[task]
+    # Extract prediction summary
+    label = "No finding"
+    conf = 0.0
+    details = None
+    caveat = None
 
-    # If real model loaded, use it
-    if cfg["LOADED"]:
-        backend, model = cfg["LOADED"]
-        img_np = _to_numpy(img, mode=cfg["MODE"], size=512)
-        label, conf, meta = _predict_backend(backend, model, img_np, cfg["LABEL_MAP"])
-        return {"label": label, "confidence": float(conf), "details": details, "caveat": caveat, "meta": meta}
+    # 1) If classification probs exist (rare for your use), prefer them
+    if getattr(res, "probs", None) is not None and res.probs is not None:
+        # res.probs.top1, res.names dict, res.probs.data (Tensor)
+        top1 = int(res.probs.top1)
+        label = res.names.get(top1, f"class_{top1}")
+        try:
+            conf = float(res.probs.top1conf)
+        except Exception:
+            conf = float(res.probs.data[top1]) if hasattr(res.probs, "data") else 0.0
+    else:
+        # 2) Use boxes (detection). If no boxes, default "No finding"
+        boxes = getattr(res, "boxes", None)
+        if boxes is not None and len(boxes) > 0:
+            # pick highest conf box
+            confs = boxes.conf.detach().cpu().numpy() if hasattr(boxes.conf, "detach") else np.array(boxes.conf)
+            idx = int(np.argmax(confs))
+            cls_id = int(boxes.cls[idx])
+            names = getattr(res, "names", {}) or {}
+            raw_label = names.get(cls_id, f"class_{cls_id}")
+            if task == "gonarthrosis":
+                # map to KL wording
+                # Expect classes 0..4 -> KL 0..4
+                label = f"KL grade {cls_id}"
+                details = "Automated Kellgren–Lawrence estimate; confirm clinically."
+            else:
+                # fracture: assume 1=fracture, 0=no fracture in your training
+                label = raw_label
+            conf = float(confs[idx])
 
-    # Fallback
-    label, conf, details_stub, caveat_stub = _predict_stub(task)
-    return {"label": label, "confidence": float(conf), "details": details_stub or details, "caveat": caveat_stub or caveat}
+    # Clinical notes (fixed brief)
+    if task == "gonarthrosis":
+        details = (
+            "Kellgren–Lawrence (KL) grading estimates radiographic OA severity from 0 (none) to 4 (severe). "
+            "Features include osteophytes, joint-space narrowing, subchondral sclerosis and bony deformity. "
+            "This is an automated estimate; correlate with clinical exam."
+        )
+    elif task == "fracture":
+        details = (
+            "AI fracture screening highlights suspicious regions; absence of a box does not exclude fracture. "
+            "Projection, positioning and artifacts can affect results. Consider clinical exam and follow-up imaging."
+        )
+
+    # If we failed to annotate, set caveat
+    if not annotated_ok:
+        caveat = "Showing original image (annotation unavailable)."
+
+    payload = {
+        "label": label,
+        "confidence": conf,
+        "details": details,
+        "caveat": caveat,
+        "annotated_image": annotated_data_url,  # <-- frontend displays this
+    }
+    return JSONResponse(payload)
