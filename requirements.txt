@@ -4,6 +4,11 @@ pillow==10.4.0
 numpy==1.26.4
 python-multipart==0.0.9
 requests==2.32.3
+
+# PyTorch (CPU) + matching torchvision
 torch==2.5.1
+torchvision==0.20.1
+
+# YOLO + deps
 ultralytics==8.3.33
 opencv-python-headless==4.10.0.84
