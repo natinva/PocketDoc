@@ -10,3 +10,11 @@ torchvision==0.24.0
 
 ultralytics==8.3.33
 opencv-python-headless==4.10.0.84
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+ultralytics
+opencv-python-headless
+reportlab
+torch
