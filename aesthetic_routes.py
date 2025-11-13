@@ -112,7 +112,7 @@ if not MODELS_DIR.exists():
     raise RuntimeError(f"Medical Aesthetic model folder not found at: {MODELS_DIR}")
 
 file_names = {
-    "Acne": "acne.pt",
+    "Acne": "Acne.pt",
     "Blackheads": "Blackheads.pt",
     "Dark Circles": "Dark Circles.pt",
     "Pigmentation": "Pigmentation.pt",
