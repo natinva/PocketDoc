@@ -1,6 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import APIRouter, UploadFile, File, Request
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import cv2
@@ -16,6 +15,8 @@ from reportlab.lib.utils import ImageReader
 import numpy as np
 import tempfile
 import os
+
+router = APIRouter()
 
 # ------------ Configuration ------------
 BTN_BG = "#003366"
@@ -74,17 +75,9 @@ def quality_label(pct: float) -> str:
     else:
         return "Poor"
 
-# ------------ App init ------------
-app = FastAPI()
-
 BASE_DIR = Path(__file__).resolve().parent
 
-STATIC_DIR = BASE_DIR / "static"
-RESULTS_DIR = STATIC_DIR / "results"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-
-# static + templates
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# templates/aesthetic klasörünü kullanacağız
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # PDF font
@@ -92,7 +85,7 @@ font_path = BASE_DIR / "Fonts" / "League_Spartan" / "static" / "LeagueSpartan-Se
 if font_path.exists():
     pdfmetrics.registerFont(TTFont("LeagueSpartan", str(font_path)))
 
-# YOLO modellerini yükle
+# YOLO modelleri
 models_dir = BASE_DIR / "Modeller" / "Medical Aesthetic"
 file_names = {
     "Acne": "acne.pt",
@@ -105,16 +98,19 @@ file_names = {
 }
 MODELS = {name: YOLO(str(models_dir / fname)) for name, fname in file_names.items()}
 
-# ------------ Routes ------------
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+RESULTS_DIR = BASE_DIR / "static" / "results"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# ------------ Routes (prefix vererek include edeceğiz) ------------
+@router.get("/aesthetic", response_class=HTMLResponse)
+async def aesthetic_index(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "result": None, "error": None},
     )
 
-@app.post("/analyze", response_class=HTMLResponse)
-async def analyze(request: Request, file: UploadFile = File(...)):
+@router.post("/aesthetic/analyze", response_class=HTMLResponse)
+async def aesthetic_analyze(request: Request, file: UploadFile = File(...)):
     image_bytes = await file.read()
     nparr = np.frombuffer(image_bytes, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
