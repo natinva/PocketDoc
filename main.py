@@ -13,6 +13,20 @@ import cv2
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+from aesthetic_routes import router as aesthetic_router
+
+app = FastAPI()
+
+# static mount yoksa ekle
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# mevcut kendi router’ların vs burada...
+
+# aesthetic modülünü ekle
+app.include_router(aesthetic_router)
 
 # ----------------------------
 # Config & Model URLs
