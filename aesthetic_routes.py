@@ -1,24 +1,30 @@
 from fastapi import APIRouter, UploadFile, File, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-import cv2
-from ultralytics import YOLO
 from pathlib import Path
 from datetime import datetime
+import tempfile
+import os
+
+import cv2
+import numpy as np
+from ultralytics import YOLO
+
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
-import numpy as np
-import tempfile
-import os
+
 
 router = APIRouter()
 
-# ------------ Configuration ------------
+# -------------------------------------------------------------------
+#  CONFIG
+# -------------------------------------------------------------------
+
 BTN_BG = "#003366"
 
 COLOR_MAP = {
@@ -67,6 +73,7 @@ SUGGESTIONS = {
     "Redness": "Choose fragrance-free, soothing products.",
 }
 
+
 def quality_label(pct: float) -> str:
     if pct > 80:
         return "Good"
@@ -75,18 +82,35 @@ def quality_label(pct: float) -> str:
     else:
         return "Poor"
 
+
+# -------------------------------------------------------------------
+#  PATH & MODEL SETUP
+# -------------------------------------------------------------------
+
 BASE_DIR = Path(__file__).resolve().parent
 
-# templates/aesthetic klasörünü kullanacağız
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+# ROOT_DIR: Modeller klasörünü bulana kadar yukarı çık
+ROOT_DIR = BASE_DIR
+while not (ROOT_DIR / "Modeller").exists() and ROOT_DIR != ROOT_DIR.parent:
+    ROOT_DIR = ROOT_DIR.parent
+
+# templates ve static root
+TEMPLATES_DIR = ROOT_DIR / "templates"
+RESULTS_DIR = ROOT_DIR / "static" / "results"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # PDF font
-font_path = BASE_DIR / "Fonts" / "League_Spartan" / "static" / "LeagueSpartan-SemiBold.ttf"
+font_path = ROOT_DIR / "Fonts" / "League_Spartan" / "static" / "LeagueSpartan-SemiBold.ttf"
 if font_path.exists():
     pdfmetrics.registerFont(TTFont("LeagueSpartan", str(font_path)))
 
-# YOLO modelleri
-models_dir = BASE_DIR / "Modeller" / "Medical Aesthetic"
+# Model klasörü
+MODELS_DIR = ROOT_DIR / "Modeller" / "Medical Aesthetic"
+if not MODELS_DIR.exists():
+    raise RuntimeError(f"Medical Aesthetic model folder not found at: {MODELS_DIR}")
+
 file_names = {
     "Acne": "acne.pt",
     "Blackheads": "Blackheads.pt",
@@ -96,86 +120,19 @@ file_names = {
     "Pore": "pore.pt",
     "Redness": "redness.pt",
 }
-MODELS = {name: YOLO(str(models_dir / fname)) for name, fname in file_names.items()}
 
-RESULTS_DIR = BASE_DIR / "static" / "results"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+MODELS = {name: YOLO(str(MODELS_DIR / fname)) for name, fname in file_names.items()}
 
-# ------------ Routes (prefix vererek include edeceğiz) ------------
-@router.get("/aesthetic", response_class=HTMLResponse)
-async def aesthetic_index(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "result": None, "error": None},
-    )
+# Render URL – JSON API cevabında absolute URL üretmek için
+BASE_URL = "https://pocketdoc-kl0k.onrender.com"
 
-@router.post("/aesthetic/analyze", response_class=HTMLResponse)
-async def aesthetic_analyze(request: Request, file: UploadFile = File(...)):
-    image_bytes = await file.read()
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    if frame is None:
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "result": None, "error": "Image could not be read."},
-        )
-
-    annotated = frame.copy()
-    report_data = []
-
-    for name, model in MODELS.items():
-        results = model(frame, conf=THRESHOLDS[name])[0]
-        count = len(results.boxes)
-        pct = max(0, 100 - DROP[name] * count)
-        pct = max(0, min(100, pct))
-
-        color = COLOR_MAP[name]
-        for box in results.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-
-        quality = quality_label(pct)
-        chip_class = (
-            "good" if quality == "Good"
-            else "neutral" if quality == "Neutral"
-            else "poor"
-        )
-
-        report_data.append(
-            {
-                "name": name,
-                "quality": quality,
-                "chip_class": chip_class,
-                "score_pct": int(pct),
-                "explanation": EXPLANATIONS[name],
-                "suggestion": SUGGESTIONS[name],
-            }
-        )
-
-    # Annotated image kaydet
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    annotated_name = f"annotated_{ts}.png"
-    annotated_path = RESULTS_DIR / annotated_name
-    cv2.imwrite(str(annotated_path), annotated)
-
-    # PDF üret
-    pdf_name = f"Report_{ts}.pdf"
-    pdf_path = RESULTS_DIR / pdf_name
-    generate_pdf(annotated_path, pdf_path, report_data)
-
-    result = {
-        "annotated_url": f"/static/results/{annotated_name}",
-        "pdf_url": f"/static/results/{pdf_name}",
-        "items": report_data,
-    }
-
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "result": result, "error": None},
-    )
+# -------------------------------------------------------------------
+#  PDF HELPER
+# -------------------------------------------------------------------
 
 def generate_pdf(image_path: Path, pdf_path: Path, data):
+    """Annotated image + text raporu PDF'e yazar."""
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
@@ -227,3 +184,150 @@ def generate_pdf(image_path: Path, pdf_path: Path, data):
 
     c.save()
     os.unlink(tmp.name)
+
+
+# -------------------------------------------------------------------
+#  HTML VERSIYON (Render üzerinde debug için)
+# -------------------------------------------------------------------
+
+@router.get("/aesthetic", response_class=HTMLResponse)
+async def aesthetic_index(request: Request):
+    """Render üzerinde test etmek için HTML sayfası (Jinja template)."""
+    return templates.TemplateResponse(
+        "aesthetic.html",  # templates/aesthetic.html
+        {"request": request, "result": None, "error": None},
+    )
+
+
+@router.post("/aesthetic/analyze", response_class=HTMLResponse)
+async def aesthetic_analyze(request: Request, file: UploadFile = File(...)):
+    """HTML formundan gelen upload'ı işleyip aynı template'i doldurur."""
+    image_bytes = await file.read()
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return templates.TemplateResponse(
+            "aesthetic.html",
+            {"request": request, "result": None, "error": "Image could not be read."},
+        )
+
+    annotated = frame.copy()
+    report_data = []
+
+    for name, model in MODELS.items():
+        results = model(frame, conf=THRESHOLDS[name])[0]
+        count = len(results.boxes)
+        pct = max(0, 100 - DROP[name] * count)
+        pct = max(0, min(100, pct))
+
+        color = COLOR_MAP[name]
+        for box in results.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+
+        quality = quality_label(pct)
+        chip_class = (
+            "good" if quality == "Good"
+            else "neutral" if quality == "Neutral"
+            else "poor"
+        )
+
+        report_data.append(
+            {
+                "name": name,
+                "quality": quality,
+                "chip_class": chip_class,
+                "score_pct": int(pct),
+                "explanation": EXPLANATIONS[name],
+                "suggestion": SUGGESTIONS[name],
+            }
+        )
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    annotated_name = f"annotated_{ts}.png"
+    annotated_path = RESULTS_DIR / annotated_name
+    cv2.imwrite(str(annotated_path), annotated)
+
+    pdf_name = f"Report_{ts}.pdf"
+    pdf_path = RESULTS_DIR / pdf_name
+    generate_pdf(annotated_path, pdf_path, report_data)
+
+    result = {
+        "annotated_url": f"/static/results/{annotated_name}",
+        "pdf_url": f"/static/results/{pdf_name}",
+        "items": report_data,
+    }
+
+    return templates.TemplateResponse(
+        "aesthetic.html",
+        {"request": request, "result": result, "error": None},
+    )
+
+
+# -------------------------------------------------------------------
+#  JSON API (Hostinger embed için)
+# -------------------------------------------------------------------
+
+@router.post("/api/aesthetic")
+async def api_aesthetic(file: UploadFile = File(...)):
+    """
+    JSON API – Hostinger'daki statik HTML bu endpoint'e fetch yapacak.
+    Body: multipart/form-data, 'file' alanında image.
+    Response: annotated_url, pdf_url ve items listesi.
+    """
+    image_bytes = await file.read()
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return JSONResponse({"error": "Image could not be read."}, status_code=400)
+
+    annotated = frame.copy()
+    report_data = []
+
+    for name, model in MODELS.items():
+        results = model(frame, conf=THRESHOLDS[name])[0]
+        count = len(results.boxes)
+        pct = max(0, 100 - DROP[name] * count)
+        pct = max(0, min(100, pct))
+
+        color = COLOR_MAP[name]
+        for box in results.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+
+        quality = quality_label(pct)
+        chip_class = (
+            "good" if quality == "Good"
+            else "neutral" if quality == "Neutral"
+            else "poor"
+        )
+
+        report_data.append(
+            {
+                "name": name,
+                "quality": quality,
+                "chip_class": chip_class,
+                "score_pct": int(pct),
+                "explanation": EXPLANATIONS[name],
+                "suggestion": SUGGESTIONS[name],
+            }
+        )
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    annotated_name = f"annotated_{ts}.png"
+    annotated_path = RESULTS_DIR / annotated_name
+    cv2.imwrite(str(annotated_path), annotated)
+
+    pdf_name = f"Report_{ts}.pdf"
+    pdf_path = RESULTS_DIR / pdf_name
+    generate_pdf(annotated_path, pdf_path, report_data)
+
+    return {
+        "annotated_url": f"{BASE_URL}/static/results/{annotated_name}",
+        "pdf_url": f"{BASE_URL}/static/results/{pdf_name}",
+        "items": report_data,
+    }
