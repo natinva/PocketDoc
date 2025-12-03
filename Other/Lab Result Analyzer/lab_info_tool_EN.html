@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cep Doktorum – Lab Result Analyzer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- pdf.js (2.6.347) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js";
+  </script>
+
+  <style>
+    :root {
+      --primary: #245a99;
+      --primary-soft: #e6f2ff;
+      --bg: #ffffff;
+      --danger: #c62828;
+      --warning: #ef6c00;
+      --success: #2e7d32;
+      --text-main: #222222;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f3f6fb;
+      color: var(--text-main);
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .card {
+      background: var(--bg);
+      border-radius: 16px;
+      padding: 20px 20px 24px;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    .upload-area {
+      margin: 16px 0 20px;
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--primary-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .upload-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+    }
+
+    .upload-left strong {
+      font-size: 0.9rem;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.05s ease, box-shadow 0.05s ease, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(36, 90, 153, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 6px rgba(36, 90, 153, 0.35);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid rgba(36, 90, 153, 0.5);
+    }
+
+    .file-name {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    .status-line {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 10px;
+      min-height: 18px;
+    }
+
+    /* TABLE */
+
+    .results-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      min-width: 520px; /* allows horizontal scroll on mobile */
+    }
+
+    .results-table th,
+    .results-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      word-break: break-word;
+    }
+
+    .results-table th {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: #666;
+    }
+
+    .badge-status {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-high {
+      background: rgba(198, 40, 40, 0.08);
+      color: var(--danger);
+    }
+
+    .status-low {
+      background: rgba(239, 108, 0, 0.08);
+      color: var(--warning);
+    }
+
+    .status-normal {
+      background: rgba(46, 125, 50, 0.08);
+      color: var(--success);
+    }
+
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-top: 18px;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .notes {
+      font-size: 0.82rem;
+      color: #555;
+      background: #fafbff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px dashed rgba(0, 0, 0, 0.08);
+      white-space: pre-line;
+    }
+
+    .disclaimer {
+      margin-top: 16px;
+      font-size: 0.75rem;
+      color: #888;
+      line-height: 1.4;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+
+    .accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .accordion-item {
+      border-radius: 10px;
+      border: 1px solid #e2e6f0;
+      background: #fafbff;
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      width: 100%;
+      border: none;
+      background: transparent;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .accordion-icon {
+      font-size: 0.9rem;
+      transition: transform 0.15s ease;
+    }
+
+    .accordion-item.open .accordion-icon {
+      transform: rotate(90deg);
+    }
+
+    .accordion-content {
+      display: none;
+      padding: 0 10px 8px;
+    }
+
+    .accordion-item.open .accordion-content {
+      display: block;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 16px;
+      }
+      .title {
+        font-size: 1.2rem;
+      }
+      .upload-area {
+        align-items: flex-start;
+      }
+      .results-table th,
+      .results-table td {
+        padding: 4px 6px;
+        font-size: 0.78rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">Cep Doktorum – Lab Result Analyzer</div>
+          <div class="subtitle">
+            A tool that automatically classifies your lab results for information purposes.
+            Contact us for our high-performance tools.
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Area -->
+      <div class="upload-area">
+        <div class="upload-left">
+          <strong>Upload your lab report (PDF format)</strong>
+          <span>Compatible with e-Nabız or hospital laboratory reports.</span>
+          <label for="pdfInput" class="btn btn-outline">
+            Choose PDF
+          </label>
+          <input id="pdfInput" type="file" accept="application/pdf" />
+          <div id="fileName" class="file-name"></div>
+        </div>
+        <button id="analyzeBtn" class="btn btn-primary" disabled>
+          Analyze
+        </button>
+      </div>
+
+      <div id="statusLine" class="status-line"></div>
+
+      <!-- Results -->
+      <div id="resultsContainer" style="display:none;">
+        <div class="section-title">Automatically detected tests</div>
+
+        <div class="results-table-wrapper">
+          <table class="results-table" id="resultsTable">
+            <thead>
+              <tr>
+                <th>Test</th>
+                <th>Value</th>
+                <th>Range</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="section-title">Summary of results</div>
+
+        <div class="accordion">
+          <div class="accordion-item" id="acc-normal" style="display:none;">
+            <button class="accordion-header" type="button">
+              <span>Tests within the normal range</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <div class="notes" id="notes-normal"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" id="acc-low" style="display:none;">
+            <button class="accordion-header" type="button">
+              <span>Tests BELOW the reference range</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <div class="notes" id="notes-low"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" id="acc-high" style="display:none;">
+            <button class="accordion-header" type="button">
+              <span>Tests ABOVE the reference range</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <div class="notes" id="notes-high"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="disclaimer">
+        This tool is not designed to make a medical diagnosis. It helps you understand your lab results.
+        For a definitive evaluation you must consult your physician. For more comprehensive evaluation and follow-up,
+        you can reach <strong>Cep Doktorum</strong> via <strong>www.cepdoktorum.com</strong>.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======================
+const TEST_DEFS = [
+
+  // ======= LIVER / PROTEINS =======
+
+  {
+    key: "ALBUMIN",
+    labels: ["Albumin", "Albumin (g/L)"],
+    unit: "g/L",
+    min: 35,
+    max: 52,
+    noteNormal:
+      "Albumin is a major liver-produced protein that helps maintain oncotic pressure and transport hormones, vitamins and drugs.",
+    noteHigh:
+      "High albumin levels are usually due to dehydration and are rarely clinically significant.",
+    noteLow:
+      "Low albumin may indicate malnutrition, chronic liver disease, nephrotic syndrome, or systemic inflammation."
+  },
+
+  {
+    key: "ALP",
+    labels: ["ALP", "Alkaline Phosphatase"],
+    unit: "U/L",
+    min: 43,
+    max: 115,
+    noteNormal:
+      "ALP is an enzyme related to the liver, bile ducts, and bones. Normal levels indicate healthy hepatic and bone metabolism.",
+    noteHigh:
+      "High ALP may indicate cholestasis, bile duct obstruction, bone disease, or increased bone turnover.",
+    noteLow: "Low ALP is uncommon but may be seen in malnutrition or certain genetic conditions."
+  },
+
+  {
+    key: "ALT",
+    labels: ["ALT", "SGPT"],
+    unit: "U/L",
+    min: 0,
+    max: 50,
+    noteNormal:
+      "ALT is a liver enzyme. Normal values suggest healthy liver cell integrity.",
+    noteHigh:
+      "Elevated ALT can indicate liver inflammation such as fatty liver, hepatitis, or medication-related injury.",
+    noteLow: ""
+  },
+
+  {
+    key: "AST",
+    labels: ["AST", "SGOT"],
+    unit: "U/L",
+    min: 0,
+    max: 50,
+    noteNormal:
+      "AST is a liver and muscle enzyme. When ALT is also normal, liver cell injury is unlikely.",
+    noteHigh:
+      "High AST may indicate liver inflammation, muscle injury, or alcohol-related liver conditions.",
+    noteLow: ""
+  },
+
+
+  // ======= INFECTIOUS / SEROLOGY =======
+
+  {
+    key: "ANTI_HIV",
+    labels: ["Anti HIV", "HIV Antibody"],
+    unit: "S/CO",
+    min: 0,
+    max: 0.99,
+    noteNormal:
+      "A non-reactive HIV antibody screening test suggests no evidence of HIV infection at the time of testing.",
+    noteHigh:
+      "A high/positive screening test requires confirmatory HIV testing as false positives may occur.",
+    noteLow: ""
+  },
+
+
+  // ======= COAGULATION =======
+
+  {
+    key: "APTT",
+    labels: ["APTT", "aPTT"],
+    unit: "sec",
+    min: 20,
+    max: 31,
+    noteNormal:
+      "aPTT assesses the intrinsic coagulation pathway. Normal values suggest normal clotting factor function.",
+    noteHigh:
+      "Prolonged aPTT may indicate factor deficiencies, anticoagulant use, liver dysfunction, or lupus anticoagulant.",
+    noteLow:
+      "Low aPTT is rare and usually not clinically significant, sometimes related to inflammation or high factor VIII levels."
+  },
+
+  {
+    key: "INR",
+    labels: ["INR"],
+    unit: "",
+    min: 0.8,
+    max: 1.2,
+    noteNormal:
+      "INR reflects the extrinsic coagulation pathway. Normal values suggest balanced clotting function.",
+    noteHigh:
+      "High INR indicates increased bleeding risk and may be due to warfarin therapy, liver disease, or vitamin K deficiency.",
+    noteLow:
+      "Low INR is generally not clinically important but may reflect increased clotting tendency."
+  },
+
+  {
+    key: "PT_PERCENT",
+    labels: ["PT%", "Prothrombin Activity"],
+    unit: "%",
+    min: 70,
+    max: 130,
+    noteNormal:
+      "Prothrombin activity reflects liver synthetic function and clotting factor availability.",
+    noteHigh: "",
+    noteLow:
+      "Low PT activity suggests impaired liver function, vitamin K deficiency, or coagulation factor deficiency."
+  },
+
+  {
+    key: "PT_SEC",
+    labels: ["PT-sn", "PT sn", "PT (sec)", "PT"],
+    unit: "sec",
+    min: 9.6,
+    max: 13.4,
+    noteNormal:
+      "PT measures the extrinsic pathway of coagulation. Normal PT indicates effective clotting factor activity.",
+    noteHigh:
+      "Prolonged PT may indicate vitamin K deficiency, liver dysfunction, or anticoagulant use.",
+    noteLow: ""
+  },
+
+
+  // ======= THYROID =======
+
+  {
+    key: "TSH",
+    labels: ["TSH", "Thyroid Stimulating Hormone"],
+    unit: "mIU/L",
+    min: 0.38,
+    max: 5.33,
+    noteNormal:
+      "TSH regulates thyroid hormone production. Normal TSH generally reflects stable thyroid function.",
+    noteHigh:
+      "High TSH suggests hypothyroidism or insufficient thyroid hormone replacement.",
+    noteLow:
+      "Low TSH suggests hyperthyroidism or excessive thyroid hormone replacement."
+  },
+
+  {
+    key: "FREE_T3",
+    labels: ["Free T3", "Serbest T3"],
+    unit: "ng/L",
+    min: 2.13,
+    max: 4.50,
+    noteNormal:
+      "Free T3 represents the active thyroid hormone. Normal levels support adequate metabolic regulation.",
+    noteHigh:
+      "High Free T3 suggests hyperthyroidism or excess thyroid hormone activity.",
+    noteLow:
+      "Low Free T3 may indicate hypothyroidism or non-thyroidal illness in severe systemic conditions."
+  },
+
+  {
+    key: "FREE_T4",
+    labels: ["Free T4", "Serbest T4"],
+    unit: "ng/dL",
+    min: 0.58,
+    max: 1.38,
+    noteNormal:
+      "Free T4 is the main circulating thyroid hormone. Normal levels indicate healthy thyroid output.",
+    noteHigh:
+      "High Free T4 levels suggest hyperthyroidism or excessive thyroid hormone medication.",
+    noteLow:
+      "Low Free T4 suggests hypothyroidism or impaired thyroid hormone production."
+  },
+
+
+  // ======= GLUCOSE / DIABETES =======
+
+  {
+    key: "GLUCOSE",
+    labels: ["Glukoz", "Glucose", "Fasting Glucose"],
+    unit: "mg/dL",
+    min: 74,
+    max: 100,
+    noteNormal:
+      "Normal fasting glucose indicates stable blood sugar regulation and appropriate insulin response.",
+    noteHigh:
+      "High fasting glucose may indicate prediabetes or diabetes and requires follow-up evaluation.",
+    noteLow:
+      "Low glucose may indicate hypoglycemia, medication effects, or hormonal imbalance."
+  },
+
+  {
+    key: "HBA1C",
+    labels: ["HbA1c", "HBA1C", "A1C"],
+    unit: "%",
+    min: 4,
+    max: 5.7,
+    noteNormal:
+      "HbA1c reflects your average blood glucose over the past 2–3 months. Normal levels indicate good metabolic control.",
+    noteHigh:
+      "High HbA1c suggests elevated long-term glucose levels and is associated with diabetes risk.",
+    noteLow: ""
+  },
+
+
+  // ======= ELECTROLYTES / MINERALS =======
+
+  {
+    key: "CALCIUM",
+    labels: ["Kalsiyum", "Calcium"],
+    unit: "mg/dL",
+    min: 8.4,
+    max: 10.6,
+    noteNormal:
+      "Calcium is essential for bone health, nerve conduction, and muscle function.",
+    noteHigh:
+      "High calcium may indicate hyperparathyroidism or malignancy-related processes.",
+    noteLow:
+      "Low calcium may cause muscle cramps, tingling, and may indicate vitamin D deficiency."
+  },
+
+  {
+    key: "SODIUM",
+    labels: ["Sodyum", "Sodium", "Na"],
+    unit: "mmol/L",
+    min: 136,
+    max: 146,
+    noteNormal:
+      "Sodium helps regulate fluid balance and nerve function.",
+    noteHigh:
+      "High sodium (hypernatremia) often reflects dehydration or excessive fluid loss.",
+    noteLow:
+      "Low sodium (hyponatremia) can cause neurological symptoms and requires medical attention."
+  },
+
+  {
+    key: "POTASSIUM",
+    labels: ["Potasyum", "Potassium", "K"],
+    unit: "mmol/L",
+    min: 3.5,
+    max: 5.1,
+    noteNormal:
+      "Potassium is crucial for heart rhythm and muscle function.",
+    noteHigh:
+      "High potassium (hyperkalemia) can cause dangerous heart rhythm disturbances.",
+    noteLow:
+      "Low potassium (hypokalemia) may cause weakness, cramps, or arrhythmias."
+  },
+
+  {
+    key: "CHLORIDE",
+    labels: ["Klorür", "Chloride", "Cl"],
+    unit: "mmol/L",
+    min: 101,
+    max: 109,
+    noteNormal:
+      "Chloride helps maintain acid–base balance and proper hydration.",
+    noteHigh: "",
+    noteLow: ""
+  },
+
+  {
+    key: "URIC_ACID",
+    labels: ["Ürik asit", "Uric Acid"],
+    unit: "mg/dL",
+    min: 3.5,
+    max: 7.2,
+    noteNormal:
+      "Uric acid is produced from purine metabolism. Normal levels suggest healthy kidney excretion.",
+    noteHigh:
+      "High uric acid may cause gout or be associated with metabolic syndrome.",
+    noteLow: ""
+  },
+
+
+  // ======= KIDNEY FUNCTION =======
+
+  {
+    key: "CREATININE",
+    labels: ["Kreatinin", "Creatinine"],
+    unit: "mg/dL",
+    min: 0.67,
+    max: 1.17,
+    noteNormal:
+      "Creatinine reflects kidney filtration capability. Normal levels suggest healthy kidney function.",
+    noteHigh:
+      "High creatinine indicates impaired kidney function or dehydration.",
+    noteLow: ""
+  },
+
+  {
+    key: "GFR",
+    labels: ["GFR", "eGFR"],
+    unit: "mL/min/1.73m²",
+    min: 60,
+    max: 200,
+    noteNormal:
+      "GFR estimates kidney filtration rate. Normal values indicate good kidney function.",
+    noteHigh:
+      "",
+    noteLow:
+      "Low GFR suggests chronic kidney disease or reduced renal filtration."
+  },
+
+  {
+    key: "BUN",
+    labels: ["BUN"],
+    unit: "mg/dL",
+    min: 6,
+    max: 20,
+    noteNormal:
+      "BUN measures urea levels and reflects kidney filtration and protein metabolism.",
+    noteHigh:
+      "High BUN may indicate kidney dysfunction, dehydration, or high protein intake.",
+    noteLow: ""
+  },
+
+  {
+    key: "URE",
+    labels: ["Üre", "Urea"],
+    unit: "mg/dL",
+    min: 17,
+    max: 43,
+    noteNormal:
+      "Urea is produced from protein breakdown. Normal levels reflect balanced renal clearance.",
+    noteHigh:
+      "High urea may indicate renal impairment or dehydration.",
+    noteLow: ""
+  },
+
+
+  // ======= LIPID PANEL =======
+
+  {
+    key: "HDL",
+    labels: ["HDL Kolesterol", "HDL", "HDL Cholesterol"],
+    unit: "mg/dL",
+    min: 35,
+    max: 55,
+    noteNormal:
+      "HDL is the 'good cholesterol' that helps remove excess lipids from the bloodstream.",
+    noteHigh:
+      "High HDL is generally protective against cardiovascular disease.",
+    noteLow:
+      "Low HDL increases cardiovascular risk; lifestyle improvement is recommended."
+  },
+
+  {
+    key: "LDL",
+    labels: ["LDL Kolesterol", "LDL", "LDL Cholesterol"],
+    unit: "mg/dL",
+    min: 0,
+    max: 130,
+    noteNormal:
+      "LDL is the main carrier of cholesterol to body tissues. Normal levels reduce cardiovascular risk.",
+    noteHigh:
+      "High LDL is a major risk factor for heart disease and may require lifestyle changes or medication.",
+    noteLow: ""
+  },
+
+  {
+    key: "NON_HDL",
+    labels: ["non-HDL Kolesterol", "Non-HDL Cholesterol"],
+    unit: "mg/dL",
+    min: 0,
+    max: 130,
+    noteNormal:
+      "Non-HDL cholesterol reflects all atherogenic lipoproteins. Normal values indicate lower cardiovascular risk.",
+    noteHigh:
+      "High non-HDL cholesterol indicates elevated atherogenic lipoproteins and increased cardiovascular risk.",
+    noteLow: ""
+  },
+
+  {
+    key: "TOTAL_CHOL",
+    labels: ["Total Kolesterol", "Total Cholesterol"],
+    unit: "mg/dL",
+    min: 0,
+    max: 200,
+    noteNormal:
+      "Total cholesterol includes LDL, HDL, and VLDL. Normal levels are associated with lower cardiovascular risk.",
+    noteHigh:
+      "High total cholesterol increases risk for cardiovascular disease.",
+    noteLow: ""
+  },
+
+  {
+    key: "VLDL",
+    labels: ["VLDL Kolesterol", "VLDL"],
+    unit: "mg/dL",
+    min: 0,
+    max: 40,
+    noteNormal:
+      "VLDL carries triglycerides in the bloodstream. Normal values indicate balanced lipid metabolism.",
+    noteHigh:
+      "High VLDL suggests elevated triglycerides and increased cardiometabolic risk.",
+    noteLow: ""
+  },
+
+
+  // ======= INFLAMMATION =======
+
+  {
+    key: "ESR",
+    labels: ["Sedimantasyon", "Sedimentation", "ESR"],
+    unit: "mm/hr",
+    min: 6,
+    max: 12,
+    noteNormal:
+      "ESR is a general marker of inflammation. Normal levels suggest absence of significant inflammatory activity.",
+    noteHigh:
+      "High ESR may indicate infection, inflammatory disease, or malignancy.",
+    noteLow:
+      "Low ESR is uncommon but may be seen with polycythemia or abnormal red blood cell morphology."
+  },
+
+
+  // ======= CBC (Complete Blood Count) =======
+
+  {
+    key: "WBC",
+    labels: ["WBC", "White Blood Cell", "Lökosit"],
+    unit: "10^9/L",
+    min: 4,
+    max: 10,
+    noteNormal:
+      "WBC count reflects immune system activity. Normal levels indicate absence of acute infection or inflammation.",
+    noteHigh:
+      "High WBC may suggest infection, inflammation, stress response, or steroid use.",
+    noteLow:
+      "Low WBC may indicate bone marrow suppression, viral infections, or medication effects."
+  },
+
+  {
+    key: "RBC",
+    labels: ["RBC", "Red Blood Cell", "Eritrosit"],
+    unit: "10^6/uL",
+    min: 4.0,
+    max: 5.5,
+    noteNormal:
+      "RBC count reflects oxygen-carrying capacity. Normal levels indicate adequate red cell production.",
+    noteHigh:
+      "High RBC (polycythemia) may occur due to smoking, chronic hypoxia, or bone marrow disorders.",
+    noteLow:
+      "Low RBC suggests anemia; causes include iron deficiency, chronic disease, or vitamin deficiencies."
+  },
+
+  {
+    key: "HGB",
+    labels: ["HGB", "Hemoglobin", "Hb"],
+    unit: "g/dL",
+    min: 12,
+    max: 16.8,
+    noteNormal:
+      "Hemoglobin carries oxygen in the blood. Normal levels show healthy oxygen-transport capacity.",
+    noteHigh:
+      "High hemoglobin may reflect dehydration or polycythemia.",
+    noteLow:
+      "Low hemoglobin indicates anemia and may require additional evaluation."
+  },
+
+  {
+    key: "HCT",
+    labels: ["HCT", "Hematocrit"],
+    unit: "%",
+    min: 40,
+    max: 54,
+    noteNormal:
+      "Hematocrit reflects the proportion of red blood cells in blood. Normal values indicate balanced blood volume.",
+    noteHigh:
+      "High hematocrit may indicate dehydration or polycythemia.",
+    noteLow:
+      "Low hematocrit is associated with anemia."
+  },
+
+  {
+    key: "PLT",
+    labels: ["PLT", "Platelet", "Trombosit"],
+    unit: "10^9/L",
+    min: 100,
+    max: 400,
+    noteNormal:
+      "Platelets help with blood clotting. Normal levels support proper hemostasis.",
+    noteHigh:
+      "High platelets (thrombocytosis) may be reactive or related to bone marrow disorders.",
+    noteLow:
+      "Low platelets (thrombocytopenia) increase bleeding risk."
+  },
+
+  {
+    key: "MCV",
+    labels: ["MCV"],
+    unit: "fL",
+    min: 80,
+    max: 100,
+    noteNormal:
+      "MCV reflects the average size of red blood cells. Normal levels indicate normocytic RBCs.",
+    noteHigh:
+      "High MCV suggests macrocytic anemia (e.g., B12/folate deficiency).",
+    noteLow:
+      "Low MCV suggests microcytic anemia (often iron deficiency)."
+  },
+
+  {
+    key: "MCH",
+    labels: ["MCH"],
+    unit: "pg",
+    min: 27,
+    max: 34,
+    noteNormal:
+      "MCH reflects the amount of hemoglobin per red blood cell.",
+    noteHigh: "",
+    noteLow: ""
+  },
+
+  {
+    key: "MCHC",
+    labels: ["MCHC"],
+    unit: "g/dL",
+    min: 32,
+    max: 36,
+    noteNormal:
+      "MCHC reflects hemoglobin concentration within RBCs.",
+    noteHigh: "",
+    noteLow:
+      "Low MCHC indicates hypochromic RBCs, commonly seen in iron deficiency anemia."
+  },
+
+  {
+    key: "RDW_CV",
+    labels: ["RDW-CV", "RDW"],
+    unit: "%",
+    min: 11,
+    max: 16,
+    noteNormal:
+      "RDW indicates variability in RBC size. Normal values reflect uniform red cell population.",
+    noteHigh:
+      "High RDW may indicate mixed anemia types or recent blood loss.",
+    noteLow: ""
+  },
+
+  {
+    key: "MPV",
+    labels: ["MPV"],
+    unit: "fL",
+    min: 6.5,
+    max: 12,
+    noteNormal:
+      "MPV reflects average platelet size. Normal values indicate balanced platelet production.",
+    noteHigh: "",
+    noteLow: ""
+  }
+
+];
+    // ======================
+
+    const pdfInput = document.getElementById("pdfInput");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const fileNameLabel = document.getElementById("fileName");
+    const statusLine = document.getElementById("statusLine");
+    const resultsContainer = document.getElementById("resultsContainer");
+    const resultsBody = document.getElementById("resultsBody");
+
+    const notesNormalBox = document.getElementById("notes-normal");
+    const notesLowBox    = document.getElementById("notes-low");
+    const notesHighBox   = document.getElementById("notes-high");
+    const accNormal      = document.getElementById("acc-normal");
+    const accLow         = document.getElementById("acc-low");
+    const accHigh        = document.getElementById("acc-high");
+
+    let selectedFile = null;
+
+    pdfInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        selectedFile = null;
+        analyzeBtn.disabled = true;
+        fileNameLabel.textContent = "";
+        return;
+      }
+      selectedFile = file;
+      fileNameLabel.textContent = file.name;
+      analyzeBtn.disabled = false;
+      resultsContainer.style.display = "none";
+      statusLine.textContent = "";
+    });
+
+    analyzeBtn.addEventListener("click", async () => {
+      if (!selectedFile) return;
+      statusLine.textContent = "Reading PDF, please wait...";
+      resultsContainer.style.display = "none";
+      resultsBody.innerHTML = "";
+
+      notesNormalBox.textContent = "";
+      notesLowBox.textContent = "";
+      notesHighBox.textContent = "";
+      accNormal.style.display = "none";
+      accLow.style.display = "none";
+      accHigh.style.display = "none";
+      accNormal.classList.remove("open");
+      accLow.classList.remove("open");
+      accHigh.classList.remove("open");
+
+      try {
+        const text = await extractTextFromPDF(selectedFile);
+        statusLine.textContent = "Analyzing tests...";
+
+        const parsedResults = parseTestsFromText(text);
+        if (parsedResults.length === 0) {
+          statusLine.textContent =
+            "None of the defined tests could be found in this PDF. There may be a format or naming difference.";
+          return;
+        }
+
+        fillResultsTable(parsedResults);
+        fillNotes(parsedResults);
+        resultsContainer.style.display = "block";
+        statusLine.textContent = `${parsedResults.length} tests were found and interpreted.`;
+      } catch (err) {
+        console.error(err);
+        statusLine.textContent = "An error occurred while reading the PDF. Please check the file format.";
+      }
+    });
+
+    async function extractTextFromPDF(file) {
+      const fileData = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: fileData });
+      const pdf = await loadingTask.promise;
+
+      let fullText = "";
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        const strings = content.items.map((item) => item.str);
+        fullText += strings.join(" ") + "\n";
+      }
+
+      return fullText;
+    }
+
+    function parseTestsFromText(text) {
+      const results = [];
+      const normalizedText = text.replace(/\s+/g, " ");
+
+      TEST_DEFS.forEach((test) => {
+        for (const label of test.labels) {
+          const pattern = new RegExp(
+            "(" + label + ")\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)\\s*([a-zA-Z/%µµIU\\.]*?)\\b",
+            "i"
+          );
+          const match = normalizedText.match(pattern);
+          if (match) {
+            const rawValue = match[2].replace(",", ".");
+            const value = parseFloat(rawValue);
+            let unit = match[3] || test.unit;
+
+            if (!unit || unit.length < 2) unit = test.unit;
+
+            let status = "normal";
+            if (!isNaN(value)) {
+              if (test.min !== undefined && value < test.min) status = "low";
+              if (test.max !== undefined && value > test.max) status = "high";
+            }
+
+            results.push({
+              key: test.key,
+              name: label,
+              value,
+              unit,
+              refMin: test.min,
+              refMax: test.max,
+              status,
+              noteNormal: test.noteNormal || "",
+              noteHigh: test.noteHigh || "",
+              noteLow: test.noteLow || ""
+            });
+            break;
+          }
+        }
+      });
+
+      return results;
+    }
+
+    function fillResultsTable(results) {
+      resultsBody.innerHTML = "";
+
+      results.forEach((r) => {
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.textContent = r.name;
+        tr.appendChild(tdName);
+
+        const tdVal = document.createElement("td");
+        tdVal.textContent = `${r.value} ${r.unit}`;
+        tr.appendChild(tdVal);
+
+        const tdRef = document.createElement("td");
+        if (r.refMin !== undefined && r.refMax !== undefined) {
+          tdRef.textContent = `${r.refMin} – ${r.refMax} ${r.unit}`;
+        } else {
+          tdRef.textContent = "-";
+        }
+        tr.appendChild(tdRef);
+
+        const tdStatus = document.createElement("td");
+        const span = document.createElement("span");
+        span.classList.add("badge-status");
+        if (r.status === "high") {
+          span.classList.add("status-high");
+          span.textContent = "High";
+        } else if (r.status === "low") {
+          span.classList.add("status-low");
+          span.textContent = "Low";
+        } else {
+          span.classList.add("status-normal");
+          span.textContent = "Normal";
+        }
+        tdStatus.appendChild(span);
+        tr.appendChild(tdStatus);
+
+        resultsBody.appendChild(tr);
+      });
+    }
+
+    function fillNotes(results) {
+      const highs   = results.filter(r => r.status === "high");
+      const lows    = results.filter(r => r.status === "low");
+      const normals = results.filter(r => r.status === "normal");
+
+      accNormal.style.display = "none";
+      accLow.style.display    = "none";
+      accHigh.style.display   = "none";
+
+      notesNormalBox.textContent = "";
+      notesLowBox.textContent    = "";
+      notesHighBox.textContent   = "";
+
+      if (normals.length > 0) {
+        accNormal.style.display = "block";
+        const lines = [];
+        lines.push("This section explains what the tests within the normal range generally indicate:");
+        normals.forEach(r => {
+          const txt = r.noteNormal || "This test result is within the normal reference range.";
+          lines.push(`• ${r.name}: ${txt}`);
+        });
+        notesNormalBox.textContent = lines.join("\n\n");
+      }
+
+      if (lows.length > 0) {
+        accLow.style.display = "block";
+        const lines = [];
+        lines.push("This section describes possible meanings of tests BELOW the reference range:");
+        lows.forEach(r => {
+          const txt = r.noteLow || "Below the reference range; may be related to nutrition, medications or organ function.";
+          lines.push(`• ${r.name}: ${txt}`);
+        });
+        notesLowBox.textContent = lines.join("\n\n");
+      }
+
+      if (highs.length > 0) {
+        accHigh.style.display = "block";
+        const lines = [];
+        lines.push("This section describes possible meanings of tests ABOVE the reference range:");
+        highs.forEach(r => {
+          const txt = r.noteHigh || "Above the reference range; may indicate a metabolic, inflammatory or hormonal change.";
+          lines.push(`• ${r.name}: ${txt}`);
+        });
+        notesHighBox.textContent = lines.join("\n\n");
+      }
+
+      if (normals.length === 0 && lows.length === 0 && highs.length === 0) {
+        accNormal.style.display = "block";
+        notesNormalBox.textContent =
+          "No meaningful data could be extracted for the defined tests, or all values are borderline.\n" +
+          "Laboratory results should always be interpreted together with your symptoms and physical examination.";
+      }
+    }
+
+    document.addEventListener("click", (e) => {
+      const header = e.target.closest(".accordion-header");
+      if (!header) return;
+      const item = header.parentElement;
+      item.classList.toggle("open");
+    });
+  </script>
+</body>
+</html>

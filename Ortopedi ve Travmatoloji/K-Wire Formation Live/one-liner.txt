@@ -1,0 +1,4 @@
+cd "/Users/avnitan/PycharmProjects/TestProject" && \
+source .venv/bin/activate && \
+pip install opencv-python-headless pillow ultralytics numpy reportlab && \
+python "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Ortopedi ve Travmatoloji/K-Wire Formation Live/LiveK-wirePredict.py"

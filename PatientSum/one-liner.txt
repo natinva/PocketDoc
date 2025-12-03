@@ -1,0 +1,1 @@
+export OPENAI_API_KEY="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" && pip install customtkinter sounddevice soundfile openai reportlab python-dotenv && python patientsum_app.py

@@ -1,1 +1,0 @@
-git clone https://github.com/natinva/PocketDoc.git && cd PocketDoc/"Medikal Estetik"/"Yüz Altın Oran Ölçümü" && python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt && python3 "Yüz Altın Oran.py"

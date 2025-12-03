@@ -1,0 +1,1 @@
+/Users/avnitan/PycharmProjects/TestProject/.venv/bin/pip install opencv-python numpy pillow reportlab && /Users/avnitan/PycharmProjects/TestProject/.venv/bin/python "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Ortopedi ve Travmatoloji/PCA - PSR Calculator/PCA - PSR Calculator.py"

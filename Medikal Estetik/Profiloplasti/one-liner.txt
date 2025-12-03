@@ -1,0 +1,1 @@
+python3 -m pip install opencv-python mediapipe numpy pillow reportlab && python3 "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Medikal Estetik/Profiloplasti/Profiloplasti.py"

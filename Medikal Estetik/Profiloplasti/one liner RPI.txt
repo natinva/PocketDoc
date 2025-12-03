@@ -1,6 +1,0 @@
-sudo apt update && \
-sudo apt install -y python3-tk && \
-git clone https://github.com/natinva/PocketDoc.git ~/PocketDoc && \
-cd ~/PocketDoc/Medikal\ Estetik/Profiloplasti && \
-pip3 install --user -r requirements.txt && \
-python3 Profiloplasti.py

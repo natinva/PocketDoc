@@ -1,0 +1,1 @@
+pip install reportlab && python "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Ortopedi ve Travmatoloji/Mayo Elbow Score/Mayo Elbow Score.py"

@@ -1,0 +1,1 @@
+cd "/Users/avnitan/PycharmProjects/TestProject" && python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip opencv-python mediapipe Pillow reportlab numpy && python "PocketDoc/Medikal Estetik/Offline Yüz Altın Oran Ölçümü/Yüz Altın Oran.py"

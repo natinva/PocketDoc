@@ -1,0 +1,1 @@
+pip install opencv-python mediapipe numpy reportlab pillow && python "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Ortopedi ve Travmatoloji/Carrying Angle - Pose/Flynn.py"

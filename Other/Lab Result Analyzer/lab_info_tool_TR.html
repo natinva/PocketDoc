@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cep Doktorum – Laboratuvar Analiz Aracı</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- pdf.js (2.6.347) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js";
+  </script>
+
+  <style>
+    :root {
+      --primary: #245a99;
+      --primary-soft: #e6f2ff;
+      --bg: #ffffff;
+      --danger: #c62828;
+      --warning: #ef6c00;
+      --success: #2e7d32;
+      --text-main: #222222;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f3f6fb;
+      color: var(--text-main);
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .card {
+      background: var(--bg);
+      border-radius: 16px;
+      padding: 20px 20px 24px;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    .upload-area {
+      margin: 16px 0 20px;
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--primary-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .upload-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+    }
+
+    .upload-left strong {
+      font-size: 0.9rem;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.05s ease, box-shadow 0.05s ease, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(36, 90, 153, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 6px rgba(36, 90, 153, 0.35);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid rgba(36, 90, 153, 0.5);
+    }
+
+    .file-name {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    .status-line {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 10px;
+      min-height: 18px;
+    }
+
+    /* TABLO */
+
+    .results-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      min-width: 520px; /* mobilde yatay scroll için */
+    }
+
+    .results-table th,
+    .results-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      word-break: break-word;
+    }
+
+    .results-table th {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: #666;
+    }
+
+    .badge-status {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-high {
+      background: rgba(198, 40, 40, 0.08);
+      color: var(--danger);
+    }
+
+    .status-low {
+      background: rgba(239, 108, 0, 0.08);
+      color: var(--warning);
+    }
+
+    .status-normal {
+      background: rgba(46, 125, 50, 0.08);
+      color: var(--success);
+    }
+
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-top: 18px;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .notes {
+      font-size: 0.82rem;
+      color: #555;
+      background: #fafbff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px dashed rgba(0, 0, 0, 0.08);
+      white-space: pre-line;
+    }
+
+    .disclaimer {
+      margin-top: 16px;
+      font-size: 0.75rem;
+      color: #888;
+      line-height: 1.4;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+
+    .accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .accordion-item {
+      border-radius: 10px;
+      border: 1px solid #e2e6f0;
+      background: #fafbff;
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      width: 100%;
+      border: none;
+      background: transparent;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .accordion-icon {
+      font-size: 0.9rem;
+      transition: transform 0.15s ease;
+    }
+
+    .accordion-item.open .accordion-icon {
+      transform: rotate(90deg);
+    }
+
+    .accordion-content {
+      display: none;
+      padding: 0 10px 8px;
+    }
+
+    .accordion-item.open .accordion-content {
+      display: block;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 16px;
+      }
+      .title {
+        font-size: 1.2rem;
+      }
+      .upload-area {
+        align-items: flex-start;
+      }
+      .results-table th,
+      .results-table td {
+        padding: 4px 6px;
+        font-size: 0.78rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">Cep Doktorum – Laboratuvar Analiz Aracı</div>
+          <div class="subtitle">
+            Laboratuvar sonuçlarınızı otomatik olarak sınıflandıran, bilgilendirme amaçlı bir araçtır.
+            Kusursuz performans veren araçlarımız için bize ulaşınız.
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Alanı -->
+      <div class="upload-area">
+        <div class="upload-left">
+          <strong>Laboratuvar sonucunuzu yükleyin (PDF formatında)</strong>
+          <span>e-Nabız veya hastane laboratuvar raporlarıyla uyumludur.</span>
+          <label for="pdfInput" class="btn btn-outline">
+            PDF Seç
+          </label>
+          <input id="pdfInput" type="file" accept="application/pdf" />
+          <div id="fileName" class="file-name"></div>
+        </div>
+        <button id="analyzeBtn" class="btn btn-primary" disabled>
+          Analiz Et
+        </button>
+      </div>
+
+      <div id="statusLine" class="status-line"></div>
+
+      <!-- Sonuçlar -->
+      <div id="resultsContainer" style="display:none;">
+        <div class="section-title">Otomatik tespit edilen testler</div>
+
+        <div class="results-table-wrapper">
+          <table class="results-table" id="resultsTable">
+            <thead>
+              <tr>
+                <th>Test</th>
+                <th>Değer</th>
+                <th>Aralık</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="section-title">Sonuçların özeti</div>
+
+        <div class="accordion">
+          <div class="accordion-item" id="acc-normal" style="display:none;">
+            <button class="accordion-header" type="button">
+              <span>Normal aralıkta çıkan testler</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <div class="notes" id="notes-normal"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" id="acc-low" style="display:none;">
+            <button class="accordion-header" type="button">
+              <span>Referansın ALTINDA olan testler</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <div class="notes" id="notes-low"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" id="acc-high" style="display:none;">
+            <button class="accordion-header" type="button">
+              <span>Referansın ÜSTÜNDE olan testler</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <div class="notes" id="notes-high"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="disclaimer">
+        Bu araç tıbbi tanı koymak için değil, laboratuvar sonuçlarını anlamanıza yardımcı olmak için tasarlanmıştır.
+        Kesin değerlendirme için hekiminizle görüşmelisiniz. Daha kapsamlı değerlendirme ve takip için
+        <strong>www.cepdoktorum.com</strong> üzerinden Cep Doktorum'a ulaşabilirsiniz.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======================
+// Geniş ve detaylı test veritabanı
+// Her test: noteNormal, noteHigh, noteLow içerir.
+const TEST_DEFS = [
+  // —— KARACİĞER / PROTEİN —— //
+  {
+    key: "ALBUMIN",
+    labels: ["Albumin"],
+    unit: "g/L",
+    min: 35,
+    max: 52,
+    noteNormal:
+      "Albumin düzeyinin normal aralıkta olması, karaciğer sentez kapasitesinin ve beslenme durumunun genellikle iyi olduğunu gösterir. " +
+      "Böbreklerden anormal protein kaybı olmadığını destekler. " +
+      "Yine de tek başına albumin değeri ile tüm klinik tablo değerlendirilemez.",
+    noteHigh:
+      "Albumin yüksekliği çoğunlukla anlamlı hastalık göstergesi değildir ve genellikle vücuttan sıvı kaybı (dehidratasyon) ile ilişkilidir. " +
+      "Bazı durumlarda yoğun diüretik kullanımı veya uzun süreli sıvı kısıtlaması da değeri yükseltebilir. " +
+      "Eğer başka bulgu yoksa genellikle yalnız başına spesifik bir hastalık anlamına gelmez.",
+    noteLow:
+      "Albumin düşüklüğü kronik karaciğer hastalığı, nefrotik sendrom gibi böbrekten protein kaybı veya yetersiz beslenme ile ilişkili olabilir. " +
+      "Uzamış inflamatuvar durumlarda da albumin seviyeleri baskılanabilir. " +
+      "Klinik bulgulara göre ek kan tetkikleri veya karaciğer–böbrek değerlendirmesi gerekebilir."
+  },
+  {
+    key: "ALP",
+    labels: ["ALP"],
+    unit: "U/L",
+    min: 43,
+    max: 115,
+    noteNormal:
+      "ALP değerinin normal aralıkta olması, safra yolları ve kemik döngüsü açısından belirgin bir aktivite artışı olmadığını gösterir. " +
+      "Karaciğer enzimleri ile birlikte değerlendirildiğinde daha anlamlıdır. " +
+      "Tek başına normal ALP, ciddi kemik veya safra yolu hastalığını tamamen dışlamaz ancak riskin düşük olduğunu düşündürür.",
+    noteHigh:
+      "ALP yüksekliği çocukluk çağında büyüme nedeniyle fizyolojik olabilir, erişkinde ise çoğunlukla kemik hastalıkları veya safra yolu tıkanıklığı ile ilişkilidir. " +
+      "Kolestatik karaciğer hastalıkları (örneğin safra taşı, primer biliyer kolanjit) ALP’yi yükseltebilir. " +
+      "Diğer karaciğer testleri ve klinik şikâyetlerle birlikte değerlendirilmelidir.",
+    noteLow:
+      "ALP düşüklüğü genellikle klinik açıdan daha nadir anlam taşır ve çoğu zaman rastlantısal saptanır. " +
+      "Aşırı çinko eksikliği, bazı genetik enzim eksiklikleri veya ciddi beslenme bozukluğu ile ilişkili olabilir. " +
+      "Şüphe durumunda klinik ve diğer laboratuvar bulguları ile beraber yorumlanmalıdır."
+  },
+  {
+    key: "ALT",
+    labels: ["ALT", "SGPT"],
+    unit: "U/L",
+    min: 0,
+    max: 50,
+    noteNormal:
+      "ALT’nin normal aralıkta olması, karaciğer hücre hasarı açısından belirgin bir bulgu olmadığını destekler. " +
+      "Özellikle kronik hepatit veya yağlı karaciğer hastalığında ALT zaman zaman normal de olabilir. " +
+      "Bu nedenle risk faktörü olan kişilerde tek başına normal ALT, takip gereksinimini ortadan kaldırmaz.",
+    noteHigh:
+      "ALT yüksekliği, karaciğer hücre hasarının en duyarlı göstergelerinden biridir ve hepatit, yağlı karaciğer hastalığı veya ilaç toksisitesinde yükselebilir. " +
+      "Genellikle AST ile birlikte değerlendirildiğinde daha anlamlı yorum yapılır. " +
+      "Devam eden veya belirgin yüksek ALT değerleri için hepatoloji veya gastroenteroloji değerlendirmesi önerilir.",
+    noteLow:
+      "ALT’nin düşük olması klinik açıdan genellikle sorun oluşturmaz ve çoğu zaman normal kabul edilir. " +
+      "Aşırı kas kütlesi kaybı veya ileri karaciğer yetmezliğinde ALT çok düşük ölçülebilir ancak bu nadir bir durumdur. " +
+      "Bu nedenle ALT düşüklüğü tek başına tanı koydurucu değildir, diğer testlerle birlikte değerlendirilmelidir."
+  },
+  {
+    key: "AST",
+    labels: ["AST", "SGOT"],
+    unit: "U/L",
+    min: 0,
+    max: 50,
+    noteNormal:
+      "AST’nin normal aralıkta olması, kas ve karaciğer hücre hasarı açısından belirgin bir artış olmadığını gösterir. " +
+      "AST yalnızca karaciğere özgü değildir; kalp ve iskelet kasında da bulunur. " +
+      "Bu nedenle normal AST, bu organlarda aktif hasarın düşük olabileceğine işaret eder.",
+    noteHigh:
+      "AST yüksekliği karaciğer hastalıkları, kas hastalıkları veya yoğun fiziksel efor sonrası görülebilir. " +
+      "ALT ile birlikte yükselmesi daha çok karaciğer kaynaklı patolojileri düşündürür. " +
+      "Çok yüksek AST düzeyleri, akut hepatit veya ağır kas hasarı (rabdomiyoliz) gibi durumlarda saptanabilir.",
+    noteLow:
+      "AST düşük ölçülmesi genellikle klinik açıdan önem taşımaz ve normal kabul edilir. " +
+      "İleri düzey organ yetmezliği veya kas kütlesi kaybında düşük AST görülebilir ancak bu nadirdir. " +
+      "Tek başına düşük AST, tanı koydurucu bir bulgu değildir."
+  },
+
+  // —— ENFEKSİYON / SEROLOJİ —— //
+  {
+    key: "ANTI_HIV",
+    labels: ["Anti HIV", "Anti HIV(Makro)"],
+    unit: "S/CO",
+    min: 0,
+    max: 0.99,
+    noteNormal:
+      "Anti-HIV test sonucunun referansın altında ve negatif sınırlar içinde olması, HIV enfeksiyonu açısından serolojik olarak reaktif olmadığını gösterir. " +
+      "Bununla birlikte çok erken dönemde yapılan testlerde antikorlar henüz oluşmamış olabilir. " +
+      "Riskli temas sonrası pencere dönemi için doktor önerisine göre tekrar test gerekebilir.",
+    noteHigh:
+      "Anti-HIV değerinin reaktif seviyede yüksek olması, HIV enfeksiyonu açısından pozitif olabileceğini düşündürür. " +
+      "Ancak tarama testleri yalancı pozitiflik verebileceğinden mutlaka doğrulama (konfirmasyon) testleri gerektirir. " +
+      "Bu durumda enfeksiyon hastalıkları uzmanı ile görüşmek ve ileri değerlendirme yapmak önemlidir.",
+    noteLow:
+      "Düşük, referans altında kalan Anti-HIV sonucu genellikle negatif olarak kabul edilir. " +
+      "Yine de şüpheli temas varsa, pencere dönemi nedeniyle belirli aralıklarla tekrar test önerilebilir. " +
+      "Klinik risk öyküsü ile birlikte değerlendirildiğinde daha anlamlıdır."
+  },
+
+  // —— KOAGÜLASYON —— //
+  {
+    key: "APTT",
+    labels: ["APTT"],
+    unit: "Sn",
+    min: 20,
+    max: 31,
+    noteNormal:
+      "APTT’nin normal aralıkta olması, iç pıhtılaşma yoluna ait faktörlerin genellikle düzgün çalıştığını gösterir. " +
+      "Bu durum rutin cerrahi girişimler için pıhtılaşma açısından çoğunlukla uygunluk anlamına gelir. " +
+      "Ancak kanama öyküsü olan kişilerde sadece normal APTT olması tüm riskleri dışlamaz.",
+    noteHigh:
+      "APTT uzaması pıhtılaşma faktör eksiklikleri, heparin kullanımı, karaciğer hastalığı veya lupus antikoagülanı gibi durumlarla ilişkili olabilir. " +
+      "Belirgin uzama cerrahi öncesi kanama riskini artırabileceği için araştırılmalıdır. " +
+      "Bu durumda hematoloji değerlendirmesi ve ek koagülasyon testleri gerekebilir.",
+    noteLow:
+      "APTT’nin kısalması genellikle klinik açıdan belirgin bir önem taşımaz. " +
+      "Bazı durumlarda yüksek fibrinojen veya hafif laboratuvar değişkenlikleri APTT’yi olduğundan kısa gösterebilir. " +
+      "Klinik olarak tromboz eğilimi varsa, başka parametrelerle birlikte değerlendirilmelidir."
+  },
+  {
+    key: "INR",
+    labels: ["INR"],
+    unit: "",
+    min: 0.8,
+    max: 1.2,
+    noteNormal:
+      "INR’nin 0.8–1.2 aralığında olması, pıhtılaşma sisteminin genel olarak dengeli olduğunu gösterir. " +
+      "Antikoagülan tedavi almayan kişiler için bu aralık normal kabul edilir. " +
+      "Cerrahi girişimlerde genelde bu aralık güvenli olarak değerlendirilir, ancak her zaman klinik durum da önemlidir.",
+    noteHigh:
+      "INR yüksekliği pıhtılaşmanın yavaşladığını ve kanama riskinin arttığını gösterir. " +
+      "Warfarin gibi kumadin türevi ilaç kullananlarda hedef INR aralığı doktor tarafından belirlenir ve yüksek değerler doz ayarı gerektirebilir. " +
+      "Antikoagülan kullanmayan bir kişide yüksek INR karaciğer hastalığı veya K vitamini eksikliği ile ilişkili olabilir.",
+    noteLow:
+      "INR’nin normalin hafif altında olması klinik açıdan nadiren sorun oluşturur. " +
+      "Bazı durumlarda tromboz eğiliminde olan hastalarda düşük INR ile birlikte diğer pıhtılaşma marker’ları da değerlendirilir. " +
+      "Antikoagülan tedavi alan hastalarda hedef aralığın altında olması pıhtı riskini artırabilir; bu durumda hekim doz ayarı yapmalıdır."
+  },
+  {
+    key: "PT_PERCENT",
+    labels: ["PT%"],
+    unit: "%",
+    min: 70,
+    max: 130,
+    noteNormal:
+      "PT% değerinin referans aralıkta olması, dış pıhtılaşma yolunun genel olarak normal çalıştığını gösterir. " +
+      "Karaciğer sentez fonksiyonları ve K vitamini bağımlı faktörler açısından olumlu kabul edilir. " +
+      "Cerrahi planlamalarda normal PT% kanama riskinin düşük olmasına katkı sağlar.",
+    noteHigh:
+      "PT% değerinin referansın üzerinde olması çoğunlukla klinik açıdan sorun oluşturmaz ve pıhtılaşmanın daha etkin olduğunu gösterebilir. " +
+      "Yine de tek başına yüksek PT% ile tromboz riski hakkında net yorum yapılamaz. " +
+      "Tüm koagülasyon parametreleri ve klinik öykü birlikte ele alınmalıdır.",
+    noteLow:
+      "Düşük PT% karaciğer fonksiyon bozukluğu, K vitamini eksikliği veya pıhtılaşma faktör eksiklikleri ile ilişkili olabilir. " +
+      "Bu durumda INR ve PT zamanı ile birlikte değerlendirme yapılır ve kanama riski artabilir. " +
+      "Belirgin düşük PT% saptandığında hepatoloji veya hematoloji görüşü faydalı olabilir."
+  },
+  {
+    key: "PT_SEC",
+    labels: ["PT-sn", "PT sn"],
+    unit: "Sn",
+    min: 9.6,
+    max: 13.4,
+    noteNormal:
+      "Protrombin zamanının normal aralıkta olması, pıhtılaşmanın başlangıç fazının sağlıklı çalıştığını gösterir. " +
+      "Karaciğer sentez fonksiyonu ve K vitamini bağımlı faktörler açısından olumlu bir bulgudur. " +
+      "Tek başına normal PT, tüm pıhtılaşma bozukluklarını dışlamasa da cerrahi için olumlu kabul edilir.",
+    noteHigh:
+      "PT süresinin uzaması pıhtılaşma faktör eksikliği, K vitamini yetersizliği veya karaciğer hastalığı ile ilişkili olabilir. " +
+      "Warfarin gibi antikoagülan kullananlarda doz fazlalığını gösterebilir. " +
+      "Belirgin uzama cerrahi veya invaziv işlemler öncesi kanama riskini artırır.",
+    noteLow:
+      "PT süresinin kısalması genellikle klinik olarak anlamlı değildir ve çoğu zaman laboratuvar değişkenliğine bağlıdır. " +
+      "Bazı durumlarda yüksek faktör düzeyleri veya preanalitik etkenler PT’yi olduğundan kısa gösterebilir. " +
+      "Tek başına kısa PT sonucu üzerinden tanısal yorum yapılmamalıdır."
+  },
+
+  // —— TİROİD —— //
+  {
+    key: "TSH",
+    labels: ["TSH"],
+    unit: "mIU/L",
+    min: 0.38,
+    max: 5.33,
+    noteNormal:
+      "TSH’nin normal aralıkta olması, tiroid bezinin hipofiz ile uyumlu çalıştığını ve tiroid hormon düzeylerinin genellikle dengede olduğunu gösterir. " +
+      "Hafif dalgalanmalar, gün içi ritim ve kullanılan bazı ilaçlarla ilişkili olabilir. " +
+      "Klinik şikâyet yoksa normal TSH çoğunlukla tiroid fonksiyonu açısından güven vericidir.",
+    noteHigh:
+      "TSH yüksekliği çoğu zaman tiroid bezinin az çalıştığını (hipotiroidi) düşündürür ve Free T4/Free T3 ile birlikte değerlendirilmelidir. " +
+      "Subklinik hipotiroidide TSH hafif yüksek, tiroid hormonları normal olabilir. " +
+      "Uzun süreli yüksek TSH, yorgunluk ve kilo artışı gibi şikâyetlerle beraber ise endokrinoloji değerlendirmesi önerilir.",
+    noteLow:
+      "TSH düşük olduğunda tiroidin fazla çalışması (hipertiroidi) veya hipofizden TSH üretiminin azlığı söz konusu olabilir. " +
+      "Free T4 ve Free T3 düzeyleriyle birlikte yorumlanması gerekir. " +
+      "Çarpıntı, kilo kaybı veya sinirlilik gibi şikâyetler varsa endokrinolojik inceleme önemlidir."
+  },
+  {
+    key: "FREE_T3",
+    labels: ["Free T3", "Serbest T3"],
+    unit: "ng/L",
+    min: 2.13,
+    max: 4.50,
+    noteNormal:
+      "Serbest T3’ün normal aralıkta olması, aktif tiroid hormonu düzeylerinin dengede olduğunu gösterir. " +
+      "Genellikle normal TSH ile birlikte görüldüğünde tiroid fonksiyonu açısından rahatlatıcı bir bulgudur. " +
+      "Bazı sistemik hastalıklar ve ilaçlar T3 düzeylerini hafif oynatabilir.",
+    noteHigh:
+      "Serbest T3 yüksekliği, TSH ile birlikte değerlendirildiğinde tiroidin aşırı çalıştığı hipertiroidi durumunu düşündürebilir. " +
+      "Çarpıntı, terleme, kilo kaybı gibi bulgularla birlikte ise önem kazanır. " +
+      "Bu durumda endokrinoloji uzmanı ile ayrıntılı değerlendirme gerekir.",
+    noteLow:
+      "Serbest T3 düşüklüğü, hipotiroidi veya ciddi sistemik hastalık sırasında ‘düşük T3 sendromu’ olarak görülebilir. " +
+      "TSH ve serbest T4 ile birlikte yorumlandığında daha doğru sonuç verir. " +
+      "Uzamış yorgunluk, üşüme ve kilo artışı gibi şikâyetler varsa tiroid fonksiyonları yeniden değerlendirilmelidir."
+  },
+  {
+    key: "FREE_T4",
+    labels: ["Free T4", "Serbest T4"],
+    unit: "ng/dL",
+    min: 0.58,
+    max: 1.38,
+    noteNormal:
+      "Serbest T4’ün normal aralıkta olması, tiroid bezi tarafından salgılanan hormon düzeyinin dengeli olduğunu gösterir. " +
+      "TSH ile birlikte normal olması, çoğu kişide tiroid işlevinin düzgün çalıştığını destekler. " +
+      "Bazı ilaçlar ve gebelik gibi durumlar referans aralığını değiştirebilir.",
+    noteHigh:
+      "Yüksek serbest T4 düzeyi, düşük TSH ile birlikte olduğunda hipertiroidi tanısını destekler. " +
+      "Çarpıntı, kilo kaybı, ellerde titreme gibi şikâyetlerle birlikte değerlendirilmelidir. " +
+      "Bu durumda ayrıntılı endokrinolojik inceleme gereklidir.",
+    noteLow:
+      "Düşük serbest T4 düzeyi, yüksek TSH ile birlikte görüldüğünde primer hipotiroidiyi düşündürür. " +
+      "Aşırı yorgunluk, üşüme, cilt kuruluğu gibi şikâyetler varsa tiroid hormonu replasman tedavisi gerekebilir. " +
+      "Hipofiz kaynaklı bazı bozukluklarda TSH da düşük olabileceği için, hekim değerlendirmesi önemlidir."
+  },
+
+  // —— GLUKOZ / DİYABET —— //
+  {
+    key: "GLUCOSE",
+    labels: ["Glukoz", "Glucose", "Açlık Glukozu", "Fasting Glucose"],
+    unit: "mg/dL",
+    min: 74,
+    max: 100,
+    noteNormal:
+      "Açlık glukozunun normal aralıkta olması, kan şekerinin açlıkta dengeli olduğunu gösterir. " +
+      "Bu durum diyabet riski açısından olumlu bir bulgudur, ancak aile öyküsü ve yaşam tarzı da önemlidir. " +
+      "Karbonhidrat dengeli bir beslenme ve düzenli egzersizle bu denge korunabilir.",
+    noteHigh:
+      "Açlık glukozunun yüksek olması, prediyabet veya diyabet gelişimi açısından uyarıcı bir bulgudur. " +
+      "Tek bir yüksek değer, tanı için yeterli değildir; tekrarlayan ölçümler ve gerektiğinde OGTT/HbA1c testi yapılmalıdır. " +
+      "Beslenme düzeni, kilo kontrolü ve endokrinoloji değerlendirmesi gerekebilir.",
+    noteLow:
+      "Glukozun düşük olması (hipoglisemi), özellikle çarpıntı, titreme ve bayılma hissi ile birleştiğinde acil değerlendirme gerektirebilir. " +
+      "Diyabet tedavisi gören kişilerde ilaç/insülin fazlalığı buna neden olabilir. " +
+      "Uzamış açlık, yoğun egzersiz veya bazı hormonal bozukluklar da hipoglisemiye yol açabilir."
+  },
+  {
+    key: "HBA1C",
+    labels: ["HbA1c", "HBA1C"],
+    unit: "%",
+    min: 4,
+    max: 5.7,
+    noteNormal:
+      "HbA1c’nin normal aralıkta olması, son 2–3 aylık dönemde ortalama kan şekerinin genellikle iyi kontrol edildiğini gösterir. " +
+      "Diyabeti olmayan kişilerde bu değerler normal glukoz metabolizmasını destekler. " +
+      "Diyabetli kişilerde hedef aralık tansiyon, yaş ve eşlik eden hastalıklara göre değişebilir.",
+    noteHigh:
+      "HbA1c yüksekliği, uzun dönemli ortalama glukoz düzeylerinin yüksek seyrettiğini gösterir ve diyabet kontrolünün yetersiz olabileceğini düşündürür. " +
+      "Damar hastalıkları ve organ hasarı riski bu değerin yüksekliği ile artar. " +
+      "Diyet, egzersiz ve ilaç tedavisi düzenlemesi için endokrinoloji veya dahiliye uzmanına başvurulmalıdır.",
+    noteLow:
+      "HbA1c’nin normalin belirgin altında olması nadirdir ve çoğu zaman klinik sorun oluşturmaz. " +
+      "Şiddetli anemi veya kan kaybı gibi durumlarda HbA1c olduğundan düşük ölçülebilir. " +
+      "Bu nedenle HbA1c yorumlanırken hemoglobin ve genel kan sayımı da göz önünde bulundurulmalıdır."
+  },
+
+  // —— ELEKTROLİTLER & MİNERALLER —— //
+  {
+    key: "CALCIUM",
+    labels: ["Kalsiyum", "Calcium"],
+    unit: "mg/dL",
+    min: 8.4,
+    max: 10.6,
+    noteNormal:
+      "Kalsiyumun normal aralıkta olması, kemik metabolizması ve kas–sinir iletimi açısından dengeli bir durumu gösterir. " +
+      "Paratiroid hormon ve D vitamini eksiklikleri olmadığında bu değerler çoğunlukla stabil seyreder. " +
+      "Total kalsiyum, albumin düzeyi ile birlikte değerlendirildiğinde daha doğru yorum yapılır.",
+    noteHigh:
+      "Kalsiyum yüksekliği (hiperkalsemi), hiperparatiroidi, bazı kanser türleri veya D vitamini fazlalığı ile ilişkili olabilir. " +
+      "Uzun süren hiperkalsemi böbrek taşları, kemik ağrıları ve yorgunluk gibi sorunlara yol açabilir. " +
+      "Bu durumda endokrinoloji veya nefroloji değerlendirmesi önerilir.",
+    noteLow:
+      "Kalsiyum düşüklüğü (hipokalsemi), D vitamini eksikliği, hipoparatiroidi veya magnezyum eksikliği ile ilişkili olabilir. " +
+      "El–yüz kaslarında kasılma, uyuşma ve kramplar eşlik ediyorsa acil değerlendirme gerekir. " +
+      "Tedavide genellikle D vitamini ve kalsiyum desteği planlanır, ancak neden mutlaka araştırılmalıdır."
+  },
+  {
+    key: "SODIUM",
+    labels: ["Sodyum", "Na", "Sodium"],
+    unit: "mmol/L",
+    min: 136,
+    max: 146,
+    noteNormal:
+      "Sodyumun normal aralıkta olması, vücuttaki sıvı–elektrolit dengesinin ve böbrek fonksiyonlarının genellikle iyi olduğunu gösterir. " +
+      "Günlük tuz alımı ile de yakından ilişkilidir. " +
+      "Normal sodyum düzeyleri, hücre içi ve dışı sıvı dağılımının dengede olduğunu düşündürür.",
+    noteHigh:
+      "Sodyum yüksekliği (hipernatremi), çoğu zaman yetersiz sıvı alımı veya fazla sıvı kaybı ile ilişkilidir. " +
+      "İleri düzey hipernatremi bilinç değişiklikleri ve nörolojik bulgulara neden olabilir. " +
+      "Genellikle sıvı replasmanı ve altta yatan nedenin tedavisi gerekir.",
+    noteLow:
+      "Sodyum düşüklüğü (hiponatremi), bazı ilaçlar, kalp yetmezliği, böbrek hastalığı veya uygunsuz ADH salınımı gibi durumlarla ilişkili olabilir. " +
+      "Baş ağrısı, bulantı, sersemlik ve ağır durumlarda nöbetlere yol açabilir. " +
+      "Bu durumda acil tıbbi değerlendirme ve dikkatli sıvı tedavisi gerekebilir."
+  },
+  {
+    key: "POTASSIUM",
+    labels: ["Potasyum", "K", "Potassium"],
+    unit: "mmol/L",
+    min: 3.5,
+    max: 5.1,
+    noteNormal:
+      "Potasyumun normal aralıkta olması, kalp ritmi ve kas fonksiyonları açısından dengeli bir durumu gösterir. " +
+      "Sağlıklı böbrekler, potasyum seviyesini dar bir aralıkta tutar. " +
+      "Normal değerler, ani ritim bozukluğu riskinin düşük olmasına katkı sağlar.",
+    noteHigh:
+      "Potasyum yüksekliği (hiperkalemi), böbrek yetmezliği, ilaçlar (ACE inhibitörleri, potasyum tutucu diüretikler) veya ciddi doku hasarı ile ilişkili olabilir. " +
+      "Kalpte ritim bozukluklarına ve hayati risk taşıyan aritmilere yol açabilir. " +
+      "Bu durumda acil EKG değerlendirmesi ve tıbbi müdahale gerekebilir.",
+    noteLow:
+      "Potasyum düşüklüğü (hipokalemi), diüretik kullanımı, kusma–ishal veya yetersiz alım sonucu gelişebilir. " +
+      "Kas güçsüzlüğü, kramplar ve ritim bozuklukları ile kendini gösterebilir. " +
+      "Tedavi altta yatan nedenin düzeltilmesi ve kontrollü potasyum desteğinden oluşur."
+  },
+  {
+    key: "CHLORIDE",
+    labels: ["Klorür", "Cl", "Chloride"],
+    unit: "mmol/L",
+    min: 101,
+    max: 109,
+    noteNormal:
+      "Klorür düzeyinin normal aralıkta olması, asit–baz dengesi ve sıvı dengesinin genellikle korunduğunu gösterir. " +
+      "Sodyum ve bikarbonat ile birlikte değerlendirildiğinde daha anlamlıdır. " +
+      "Tek başına normal klorür değeri, genel metabolik denge hakkında kabaca olumlu bir fikir verir.",
+    noteHigh:
+      "Klorür yüksekliği, metabolik asidoz durumlarında veya fazla tuz alımında görülebilir. " +
+      "Bazen böbrek tübül bozuklukları ile ilişkili olabilir. " +
+      "Yüksek klorür, diğer elektrolitler ve kan gazı sonuçları ile birlikte değerlendirilmelidir.",
+    noteLow:
+      "Klorür düşüklüğü, kusma, mide sıvısı kaybı veya metabolik alkaloz gibi durumlarda ortaya çıkabilir. " +
+      "Genellikle sodyum ve bikarbonat değişiklikleri ile birlikte seyreder. " +
+      "Altta yatan neden düzeltildiğinde klorür düzeyi çoğunlukla normale döner."
+  },
+  {
+    key: "URIC_ACID",
+    labels: ["Ürik asit", "Urik asit", "Uric acid"],
+    unit: "mg/dL",
+    min: 3.5,
+    max: 7.2,
+    noteNormal:
+      "Ürik asidin normal aralıkta olması, pürin metabolizması ve böbrek yoluyla atılımın dengeli olduğunu gösterir. " +
+      "Normal değerler gut atağı ve ürik asit taşları açısından riski azaltıcı bir faktördür. " +
+      "Yine de tek başına normal olması, ileride risk olmayacağı anlamına gelmez.",
+    noteHigh:
+      "Ürik asit yüksekliği gut hastalığı, metabolik sendrom ve bazı böbrek hastalıkları ile ilişkili olabilir. " +
+      "Eklemlerde ani, şiddetli ağrı ve kızarıklık atakları ile birlikteyse gut atağı düşünülebilir. " +
+      "Beslenme düzeni, kilo kontrolü ve gerekirse ilaç tedavisi için hekim değerlendirmesi gerekir.",
+    noteLow:
+      "Ürik asidin düşük olması çoğu zaman klinik açıdan belirgin bir sorun oluşturmaz. " +
+      "Nadiren bazı genetik hastalıklar veya aşırı idrar söktürücü kullanımında görülebilir. " +
+      "Genellikle başka bir bulgu yoksa ek değerlendirme gerektirmez."
+  },
+
+  // —— BÖBREK FONKSİYONLARI —— //
+  {
+    key: "CREATININE",
+    labels: ["Kreatinin"],
+    unit: "mg/dL",
+    min: 0.67,
+    max: 1.17,
+    noteNormal:
+      "Kreatininin normal aralıkta olması, böbreklerin filtreleme fonksiyonunun genellikle iyi olduğunu gösterir. " +
+      "Kas kütlesi fazla olan kişilerde biraz daha yüksek, düşük kas kütlesinde daha düşük normal değerler görülebilir. " +
+      "GFR ile birlikte yorumlandığında böbrek fonksiyonu hakkında daha net fikir verir.",
+    noteHigh:
+      "Kreatinin yüksekliği, böbrek fonksiyon bozukluğu veya akut böbrek hasarı olasılığını düşündürür. " +
+      "Susuz kalma, bazı ilaçlar veya idrar yolu tıkanıklığı da kreatinin yükselmesine neden olabilir. " +
+      "Yüksek kreatinin mutlaka nefroloji veya dahiliye uzmanı tarafından değerlendirilmelidir.",
+    noteLow:
+      "Kreatinin düşüklüğü genellikle düşük kas kütlesi, ileri yaş veya ağır beslenme bozukluğu ile ilişkilidir. " +
+      "Çoğu durumda tek başına klinik sorun oluşturmaz. " +
+      "Ancak kas kaybının eşlik ettiği kronik hastalıklarda izlenmesi önemlidir."
+  },
+  {
+    key: "GFR",
+    labels: ["GFR"],
+    unit: "mL/dk/1.73m²",
+    min: 60,
+    max: 200,
+    noteNormal:
+      "GFR’nin 60 mL/dk/1.73m² üzerinde olması, böbrek filtrasyon fonksiyonunun genellikle korunmuş olduğunu gösterir. " +
+      "Genç erişkinlerde bu değerin 90’ın üzerinde olması beklenir. " +
+      "Yaşla birlikte GFR’de hafif düşüş normal kabul edilebilir.",
+    noteHigh:
+      "GFR’nin çok yüksek hesaplanması genellikle klinik sorun anlamına gelmez ve çoğu zaman formül kaynaklıdır. " +
+      "Bazı durumlarda erken diyabetik nefropatide hiperfiltrasyon görülebilir. " +
+      "GFR yüksek olduğu düşünülse bile, klinik ve diğer böbrek parametreleri ile birlikte değerlendirilmelidir.",
+    noteLow:
+      "GFR’nin 60’ın altında olması kronik böbrek hastalığı olasılığını düşündürür. " +
+      "Değer ne kadar düşükse hastalık evresi ve olası komplikasyon riski o kadar artar. " +
+      "Bu durumda nefroloji uzmanı ile takip ve uygun yaşam tarzı düzenlemeleri önemlidir."
+  },
+  {
+    key: "BUN",
+    labels: ["BUN"],
+    unit: "mg/dL",
+    min: 6,
+    max: 20,
+    noteNormal:
+      "BUN değerinin normal aralıkta olması, protein metabolizması ve böbrek fonksiyonlarının genellikle dengeli olduğunu gösterir. " +
+      "Beslenme ve hidrasyon durumu da BUN seviyesini etkileyebilir. " +
+      "Kreatinin ile birlikte değerlendirildiğinde böbrek fonksiyonu hakkında daha net bilgi verir.",
+    noteHigh:
+      "BUN yüksekliği böbrek fonksiyon bozukluğu, dehidratasyon veya yüksek protein alımı ile ilişkili olabilir. " +
+      "Üremik belirtiler (bulantı, halsizlik, iştahsızlık) eşlik ediyorsa ciddiye alınmalıdır. " +
+      "Kreatinin ile birlikte yükselmişse, nefroloji değerlendirmesi önem kazanır.",
+    noteLow:
+      "Düşük BUN değeri genellikle klinik açıdan önemli bir sorun oluşturmaz. " +
+      "Düşük protein alımı, karaciğer hastalığı veya aşırı hidrasyon durumlarında görülebilir. " +
+      "Karaciğer fonksiyon testleri ile birlikte yorumlanması daha doğrudur."
+  },
+  {
+    key: "URE",
+    labels: ["Üre"],
+    unit: "mg/dL",
+    min: 17,
+    max: 43,
+    noteNormal:
+      "Üre düzeyinin normal aralıkta olması, protein metabolizması ve böbrek atılımının dengeli olduğuna işaret eder. " +
+      "Günlük protein alımı ve hidrasyon durumuna göre hafif dalgalanmalar görülebilir. " +
+      "Kreatinin ile birlikte değerlendirmek böbrek durumu için daha sağlıklı bir yaklaşımdır.",
+    noteHigh:
+      "Üre yüksekliği böbrek fonksiyon bozukluğu, susuz kalma veya yüksek proteinli diyet ile ilişkili olabilir. " +
+      "Baş ağrısı, halsizlik ve bulantı gibi üremik belirtiler eşlik ediyorsa önemlidir. " +
+      "Yüksek üre değerlerinde altta yatan hastalık mutlaka araştırılmalıdır.",
+    noteLow:
+      "Üre düşüklüğü nadir olarak klinik anlam taşır ve çoğunlukla düşük protein alımı veya karaciğer hastalığı ile ilişkilidir. " +
+      "Karaciğer fonksiyon testleri de bozuk ise, karaciğer kaynaklı sorunlar düşünülmelidir. " +
+      "Tek başına düşük üre çoğu zaman acil müdahale gerektirmez."
+  },
+
+  // —— LİPİD PROFİLİ —— //
+  {
+    key: "HDL",
+    labels: ["HDL Kolesterol", "HDL", "HDL Cholesterol"],
+    unit: "mg/dL",
+    min: 35,
+    max: 55,
+    noteNormal:
+      "HDL kolesterolün normal aralıkta veya yüksek olması, kalp-damar hastalıkları açısından koruyucu etki sağlar. " +
+      "Düzenli egzersiz ve sağlıklı beslenme HDL’yi olumlu yönde etkiler. " +
+      "Sigara kullanımı HDL’yi düşürebileceği için bırakılması önerilir.",
+    noteHigh:
+      "HDL’nin yüksek olması genellikle olumlu kabul edilir ve kardiyovasküler riskin görece daha düşük olduğunu düşündürür. " +
+      "Çok nadir genetik durumlar dışında yüksek HDL klinik sorun değildir. " +
+      "Yine de diğer lipid değerleri ve risk faktörleri ile birlikte değerlendirilmelidir.",
+    noteLow:
+      "Düşük HDL, kalp-damar hastalıkları için önemli bir risk faktörüdür. " +
+      "Hareketsiz yaşam, sigara ve sağlıksız beslenme HDL düzeyini düşürebilir. " +
+      "Düzenli fiziksel aktivite, kilo kontrolü ve sigarayı bırakmak HDL’yi artırmaya yardımcı olabilir."
+  },
+  {
+    key: "LDL",
+    labels: ["LDL Kolesterol", "Direkt LDL", "LDL-Cholesterol"],
+    unit: "mg/dL",
+    min: 0,
+    max: 130,
+    noteNormal:
+      "LDL kolesterolün hedef aralıkta olması, damar sertliği (ateroskleroz) riskinin daha düşük olduğunu gösterir. " +
+      "Hedef değer kişiye göre değişir: diyabet veya kalp hastalığı olanlarda genellikle daha düşük tutulması gerekir. " +
+      "Sağlıklı yaşam tarzı ve gerekirse ilaç tedavisi ile LDL kontrolü sağlanır.",
+    noteHigh:
+      "LDL yüksekliği, kalp krizi ve inme gibi aterosklerotik hastalıklar için en önemli risk faktörlerinden biridir. " +
+      "Özellikle sigara, hipertansiyon ve diyabetle birlikte olduğunda risk belirgin artar. " +
+      "Diyet değişikliği, kilo kontrolü ve kardiyoloji/dahiliye önerisine göre kolesterol düşürücü ilaçlar gündeme gelebilir.",
+    noteLow:
+      "LDL’nin düşük olması genellikle kalp-damar hastalıkları açısından koruyucu kabul edilir. " +
+      "Bazı kişilerde genetik nedenlerle LDL doğal olarak düşük olabilir. " +
+      "Çok aşırı düşüklük nadiren bazı hormonal veya beslenme sorunlarında görülür; hekim gerek görürse ek inceleme yapabilir."
+  },
+  {
+    key: "NON_HDL",
+    labels: ["non-HDL Kolesterol", "non HDL Kolesterol"],
+    unit: "mg/dL",
+    min: 0,
+    max: 130,
+    noteNormal:
+      "non-HDL kolesterolün hedef aralıkta olması, aterosklerotik riskin genel olarak kabul edilebilir sınırlar içinde olduğunu gösterir. " +
+      "Bu parametre LDL’nin yanı sıra diğer ‘kötü’ kolesterol fraksiyonlarını da içerir. " +
+      "Özellikle trigliseridi yüksek olan kişilerde non-HDL takibi faydalıdır.",
+    noteHigh:
+      "non-HDL kolesterol yüksekliği, LDL dışındaki aterojenik lipoproteinlerin de fazla olduğunu gösterir. " +
+      "Bu durum kalp-damar hastalığı riskini artırır ve yaşam tarzı değişikliği ile ilaç tedavisini gündeme getirebilir. " +
+      "Kardiyoloji veya dahiliye uzmanı, kişiye özel hedef değer ve tedavi planı belirleyebilir.",
+    noteLow:
+      "non-HDL kolesterolün düşük veya hedef aralığın altında olması genellikle olumlu bir bulgudur. " +
+      "Kalp-damar hastalıkları açısından riskin düşük olduğunu destekler. " +
+      "Yine de aile öyküsü ve diğer risk faktörleri göz önünde bulundurulmalıdır."
+  },
+  {
+    key: "TOTAL_CHOL",
+    labels: ["Total Kolesterol", "Total Cholesterol"],
+    unit: "mg/dL",
+    min: 0,
+    max: 200,
+    noteNormal:
+      "Total kolesterolün 200 mg/dL altında olması, genel kolesterol yükünün kabul edilebilir düzeyde olduğunu gösterir. " +
+      "Ancak HDL ve LDL dağılımı risk değerlendirmesinde daha önemlidir. " +
+      "Sağlıklı yaşam tarzı, bu dengenin korunmasına yardımcı olur.",
+    noteHigh:
+      "Total kolesterol yüksekliği, LDL ve/veya trigliseridlerin de yüksek olduğu anlamına gelebilir. " +
+      "Kalp-damar hastalıkları açısından riski artırır ve ayrıntılı lipid profili ile takip edilmelidir. " +
+      "Gerekirse yaşam tarzı değişikliklerine ek olarak ilaç tedavisi gündeme gelebilir.",
+    noteLow:
+      "Total kolesterolün çok düşük olması nadiren bazı beslenme bozuklukları, emilim sorunları veya kronik hastalıklarla ilişkili olabilir. " +
+      "Çoğu kişide hafif düşüklük klinik sorun oluşturmaz. " +
+      "Eşlik eden kilo kaybı veya başka bulgular varsa hekim değerlendirmesi gerekir."
+  },
+  {
+    key: "VLDL",
+    labels: ["VLDL Kolesterol", "VLDL"],
+    unit: "mg/dL",
+    min: 0,
+    max: 40,
+    noteNormal:
+      "VLDL kolesterolün referans aralıkta olması, trigliserid yükünün aşırı olmadığını gösterir. " +
+      "Sağlıklı beslenme ve düzenli egzersiz, VLDL seviyelerini kontrol altında tutmaya yardımcı olur. " +
+      "non-HDL ve trigliseridlerle birlikte değerlendirilmesi daha anlamlıdır.",
+    noteHigh:
+      "VLDL yüksekliği genellikle yüksek trigliserid düzeyleri ile birlikte görülür ve metabolik sendrom riskini artırır. " +
+      "Karaciğer yağlanması ve pankreatit riski açısından da uyarıcı olabilir. " +
+      "Rafine karbonhidrat ve şekerden fakir beslenme, kilo kontrolü ve gerektiğinde ilaç tedavisi önerilir.",
+    noteLow:
+      "VLDL’nin düşük olması çoğu zaman olumlu kabul edilir ve metabolik riskin görece daha düşük olduğuna işaret eder. " +
+      "Bazı durumlarda aşırı düşük yağ alımı veya malabsorpsiyonla ilişkili olabilir. " +
+      "Klinik şüphe yoksa genellikle ek inceleme gerektirmez."
+  },
+
+  // —— ENFLAMASYON —— //
+  {
+    key: "ESR",
+    labels: ["Sedimantasyon 1.saat", "Sedimentasyon", "ESR"],
+    unit: "mm/saat",
+    min: 6,
+    max: 12,
+    noteNormal:
+      "Sedimantasyon (ESR) değerinin normal aralıkta olması, vücutta belirgin bir sistemik inflamasyon veya kronik enfeksiyon olmadığını düşündürür. " +
+      "Ancak ESR çok non-spesifik bir testtir ve tek başına tanı koydurmaz. " +
+      "Semptomlar ve diğer kan tetkikleri ile birlikte yorumlanmalıdır.",
+    noteHigh:
+      "ESR yüksekliği enfeksiyonlar, romatizmal hastalıklar, bazı kan hastalıkları ve maligniteler dahil pek çok durumda görülebilir. " +
+      "Non-spesifik olduğu için tek başına tanı koydurmaz ancak kronik inflamatuvar süreçleri işaret edebilir. " +
+      "Yüksek ESR, klinik bulgulara göre romatoloji, enfeksiyon veya hematoloji değerlendirmesi gerektirebilir.",
+    noteLow:
+      "ESR’nin çok düşük olması nadiren klinik açıdan önem taşır. " +
+      "Polisitemi veya bazı kan hücre sayısı bozukluklarında düşük ESR saptanabilir. " +
+      "Genellikle tek başına düşük ESR için ek inceleme gerekmez."
+  },
+
+  // —— KAN SAYIMI (CBC) —— //
+  {
+    key: "WBC",
+    labels: ["WBC", "Lökosit"],
+    unit: "10^9/L",
+    min: 4,
+    max: 10,
+    noteNormal:
+      "Lökosit sayısının normal aralıkta olması, bağışıklık sisteminin istirahat halinde dengeli çalıştığını gösterir. " +
+      "Akut enfeksiyon veya ciddi inflamasyon olmadığında bu değerler genellikle stabildir. " +
+      "Klinik tabloya göre alt grupların (nötrofil, lenfosit vb.) dağılımı da önemlidir.",
+    noteHigh:
+      "Lökosit yüksekliği (lökositoz) enfeksiyon, inflamasyon, kortikosteroid kullanımı veya bazı kan hastalıkları ile ilişkili olabilir. " +
+      "Eşlik eden ateş, ağrı veya başka bulgular varsa enfeksiyon olasılığı artar. " +
+      "Persistan yüksek değerlerde hematoloji veya dahiliye uzmanı değerlendirmesi önemlidir.",
+    noteLow:
+      "Lökosit düşüklüğü (lökopeni), viral enfeksiyonlar, kemik iliği baskılanması veya bazı ilaç yan etkileriyle ilişkili olabilir. " +
+      "İleri derecede düşüklükte enfeksiyonlara yatkınlık artar. " +
+      "Bu durumda altta yatan nedenin araştırılması ve gerekirse hematoloji takibi gerekir."
+  },
+  {
+    key: "RBC",
+    labels: ["RBC", "Eritrosit"],
+    unit: "10^6/uL",
+    min: 4.0,
+    max: 5.5,
+    noteNormal:
+      "Eritrosit sayısının normal aralıkta olması, oksijen taşıma kapasitesinin genel olarak yeterli olduğunu gösterir. " +
+      "Hemoglobin ve hematokrit ile birlikte değerlendirildiğinde anemi veya polisitemi varlığı daha net anlaşılır. " +
+      "Kronik hastalık veya kan kaybı yoksa normal RBC genellikle iyi bir göstergedir.",
+    noteHigh:
+      "Eritrosit yüksekliği (polisitemi), kronik hipoksi, sigara kullanımı veya nadiren kemik iliği hastalıkları ile ilişkili olabilir. " +
+      "Kanın yoğunlaşmasına ve pıhtılaşma riskinin artmasına yol açabilir. " +
+      "Bu durumda hematoloji veya göğüs hastalıkları uzmanı tarafından değerlendirme önerilir.",
+    noteLow:
+      "Düşük eritrosit sayısı, anemi ile uyumludur ve demir, B12, folat eksikliği veya kronik hastalık anemisi gibi farklı nedenleri olabilir. " +
+      "Yorgunluk, nefes darlığı ve çarpıntı gibi şikâyetlerle birlikteyse mutlaka değerlendirilmelidir. " +
+      "Tedavi altta yatan nedene yönelik planlanır."
+  },
+  {
+    key: "HGB",
+    labels: ["HGB", "Hemoglobin", "Hb"],
+    unit: "g/dL",
+    min: 12,
+    max: 16.8,
+    noteNormal:
+      "Hemoglobinin normal aralıkta olması, vücudun oksijen taşıma kapasitesinin genellikle yeterli olduğunu gösterir. " +
+      "Normal değerler, belirgin bir anemi veya polisitemi olmadığını düşündürür. " +
+      "Kronik hastalığı olmayan bireylerde bu durum günlük yaşam performansı için olumlu kabul edilir.",
+    noteHigh:
+      "Hemoglobin yüksekliği, dehidratasyon veya gerçek polisitemi durumunda görülebilir. " +
+      "Kalp ve akciğer hastalıklarında kronik oksijen yetersizliği vücudu daha fazla hemoglobin üretmeye zorlayabilir. " +
+      "Yüksek hemoglobin, kanın koyulaşmasına bağlı pıhtı riski artışıyla ilişkili olabilir.",
+    noteLow:
+      "Hemoglobin düşüklüğü (anemi), demir eksikliği, B12/folat eksikliği, kronik hastalıklar veya kan kaybı ile ilişkili olabilir. " +
+      "Halsizlik, çabuk yorulma, baş dönmesi ve çarpıntı gibi şikâyetler sık görülür. " +
+      "Nedenin belirlenmesi için ayrıntılı hematolojik değerlendirme gerekebilir."
+  },
+  {
+    key: "HCT",
+    labels: ["HCT", "Hematokrit"],
+    unit: "%",
+    min: 40,
+    max: 54,
+    noteNormal:
+      "Hematokritin normal aralıkta olması, kandaki hücresel öğeler ile plazma oranının dengeli olduğunu gösterir. " +
+      "Hemoglobin ve eritrosit sayısı ile birlikte anemi veya polisitemi varlığı değerlendirilir. " +
+      "Normal hematokrit, kanın akışkanlığının fizyolojik sınırlar içinde olduğu anlamına gelir.",
+    noteHigh:
+      "Hematokrit yüksekliği, polisitemi veya dehidratasyon sonucunda kandaki hücre yoğunluğunun arttığını gösterir. " +
+      "Bu durum kanın koyulaşmasına ve pıhtı riskinin artmasına neden olabilir. " +
+      "Sigara kullanımı, kronik akciğer hastalığı veya kemik iliği hastalıkları ile ilişkili olabilir.",
+    noteLow:
+      "Düşük hematokrit, anemi varlığını düşündürür ve düşük hemoglobin ile birlikte değerlendirilir. " +
+      "Kronik kan kaybı, beslenme bozuklukları veya kronik hastalıklar buna neden olabilir. " +
+      "Tedavi, altta yatan nedene göre demir, B12/folat desteği veya başka tedavileri içerebilir."
+  },
+  {
+    key: "PLT",
+    labels: ["PLT", "Trombosit"],
+    unit: "10^9/L",
+    min: 100,
+    max: 400,
+    noteNormal:
+      "Trombosit sayısının normal aralıkta olması, kanama durdurma mekanizmasının genel olarak dengeli olduğunu gösterir. " +
+      "Cerrahi veya travma durumlarında pıhtı oluşumu için yeterli trombosit varlığı önemlidir. " +
+      "Normal değerler, spontan kanama riskinin düşük olduğunu düşündürür.",
+    noteHigh:
+      "Trombosit yüksekliği (trombositoz), reaktif (enfeksiyon, demir eksikliği) veya kemik iliği kaynaklı olabilir. " +
+      "Bazı durumlarda pıhtılaşma eğilimini artırabilir ve dikkatle izlenmelidir. " +
+      "Persistan yüksek trombosit sayısında hematoloji uzmanı değerlendirmesi gerekebilir.",
+    noteLow:
+      "Trombosit düşüklüğü (trombositopeni), kanama ve morluk oluşma riskini artırır. " +
+      "İlaçlar, viral enfeksiyonlar, otoimmün hastalıklar veya kemik iliği problemleri buna neden olabilir. " +
+      "Belirgin düşüklükte özellikle travmalardan kaçınmak ve hematoloji değerlendirmesi almak önemlidir."
+  },
+  {
+    key: "MCV",
+    labels: ["MCV"],
+    unit: "fL",
+    min: 80,
+    max: 100,
+    noteNormal:
+      "MCV’nin normal aralıkta olması, eritrosit hacimlerinin ortalama boyutunun normal olduğunu gösterir. " +
+      "Bu durum genellikle normositik anemi yokluğunu destekler. " +
+      "Yine de eşlik eden HGB, HCT ve RDW değerleri ile birlikte yorumlanmalıdır.",
+    noteHigh:
+      "MCV yüksekliği makrositik anemiye işaret eder ve sıklıkla B12 veya folat eksikliği, alkol kullanımı veya bazı ilaçlarla ilişkilidir. " +
+      "Bazı kemik iliği hastalıklarında da makrositoz görülebilir. " +
+      "Bu durumda B12/folat düzeyleri ve gerekirse ileri hematolojik incelemeler yapılmalıdır.",
+    noteLow:
+      "MCV düşüklüğü mikrositik anemi ile uyumludur ve çoğunlukla demir eksikliği veya talasemi taşıyıcılığı ile ilişkilidir. " +
+      "Demir tetkikleri ve gerekirse hemoglobin elektroforezi ile ayırıcı tanı yapılır. " +
+      "Tedavi, eksiklik saptanırsa uygun demir veya diğer desteklerin verilmesini içerir."
+  },
+  {
+    key: "MCH",
+    labels: ["MCH"],
+    unit: "pg",
+    min: 27,
+    max: 34,
+    noteNormal:
+      "MCH’nin normal aralıkta olması, eritrosit başına düşen hemoglobin miktarının dengede olduğunu gösterir. " +
+      "MCV ile birlikte, anemi tiplerinin sınıflandırılmasında kullanılır. " +
+      "Normal MCH, belirgin mikrositoz veya makrositoz olmadığını düşündürür.",
+    noteHigh:
+      "MCH yüksekliği genellikle makrositik eritrositlerle birlikte görülür ve B12/folat eksikliği veya alkol kullanımı ile ilişkili olabilir. " +
+      "Bazı ilaçlar da eritrosit hacmini ve MCH’yi artırabilir. " +
+      "Bu durumda diğer kan parametreleri ve vitamin düzeyleri değerlendirilmelidir.",
+    noteLow:
+      "MCH düşüklüğü, eritrosit başına düşen hemoglobin miktarının azaldığını gösterir ve çoğunlukla demir eksikliği anemisi ile ilişkilidir. " +
+      "Ayrıca talasemi taşıyıcılığında da düşük MCH görülebilir. " +
+      "Demir tetkikleri ve aile öyküsü ile birlikte değerlendirme yapılmalıdır."
+  },
+  {
+    key: "MCHC",
+    labels: ["MCHC"],
+    unit: "g/dL",
+    min: 32,
+    max: 36,
+    noteNormal:
+      "MCHC’nin normal aralıkta olması, eritrositlerin hemoglobin yoğunluğunun dengeli olduğunu belirtir. " +
+      "Çoğu kişide bu değer küçük değişkenlikler gösterse de stabil kabul edilir. " +
+      "Diğer eritrosit indeksleri ile birlikte anemi tiplerinin ayırımında kullanılır.",
+    noteHigh:
+      "MCHC yüksekliği nadir görülür ve bazen laboratuvar artefaktı olabilir. " +
+      "Sferositoz gibi bazı hemolitik anemi tiplerinde artmış olabilir. " +
+      "Klinik şüphe durumunda ileri hematolojik incelemeler gerekebilir.",
+    noteLow:
+      "MCHC düşüklüğü genellikle hipokromik eritrositlerle birlikte görülür ve demir eksikliği anemisi ile ilişkilidir. " +
+      "Eritrositler mikroskopta ‘soluk’ görünür. " +
+      "Demir tetkikleri ve anemi etiyolojisine yönelik incelemeler yapılmalıdır."
+  },
+  {
+    key: "RDW_CV",
+    labels: ["RDW-CV"],
+    unit: "%",
+    min: 11,
+    max: 16,
+    noteNormal:
+      "RDW-CV’nin normal aralıkta olması, eritrosit boyutlarının birbirine yakın olduğunu ve belirgin bir anizositoz olmadığını gösterir. " +
+      "Anemi yokluğunda bu değer genellikle normal sınırlarda seyreder. " +
+      "MCV ile birlikte anemi tiplerinin ayırımında kullanılır.",
+    noteHigh:
+      "RDW yüksekliği, eritrosit boyutlarında belirgin farklılıklar olduğunu gösterir ve demir eksikliği, B12/folat eksikliği veya kombine anemilerde sık görülür. " +
+      "Yeni tedavi başlanmış anemilerde de RDW artışı gözlenebilir. " +
+      "Yüksek RDW, daha ayrıntılı hematolojik değerlendirme gerektirebilir.",
+    noteLow:
+      "RDW’nin düşük olması nadir görülür ve genellikle klinik açıdan önemli kabul edilmez. " +
+      "Bazı laboratuvar varyasyonları sonucu hafif düşük ölçümler olabilir. " +
+      "Klinik şikâyet yoksa ek inceleme gerektirmez."
+  },
+  {
+    key: "MPV",
+    labels: ["MPV"],
+    unit: "fL",
+    min: 6.5,
+    max: 12,
+    noteNormal:
+      "MPV’nin normal aralıkta olması, trombositlerin ortalama hacminin dengeli olduğunu gösterir. " +
+      "Normal MPV, trombositlerin fonksiyonel açıdan genellikle yeterli olabileceğini düşündürür. " +
+      "PLT sayısı ile birlikte kanama veya pıhtılaşma eğiliminin değerlendirilmesinde kullanılır.",
+    noteHigh:
+      "Yüksek MPV, trombositlerin daha büyük ve genç olduğunu gösterebilir ve bazı durumlarda tromboz riskinin arttığına işaret edebilir. " +
+      "Enflamatuvar durumlar, sigara kullanımı ve bazı miyeloproliferatif hastalıklarda MPV artışı görülebilir. " +
+      "Bu durumda klinik tablo ve diğer pıhtılaşma testleri ile birlikte yorum yapılmalıdır.",
+    noteLow:
+      "Düşük MPV, daha küçük trombositlerin baskın olduğunu gösterebilir ve bazı kemik iliği baskılanması durumlarında görülür. " +
+      "PLT sayısının da düşük olduğu durumlarda kanama riski artabilir. " +
+      "Bu bulgu hematoloji değerlendirmesini gerektirebilir."
+  }
+];
+    // ======================
+
+    const pdfInput = document.getElementById("pdfInput");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const fileNameLabel = document.getElementById("fileName");
+    const statusLine = document.getElementById("statusLine");
+    const resultsContainer = document.getElementById("resultsContainer");
+    const resultsBody = document.getElementById("resultsBody");
+
+    const notesNormalBox = document.getElementById("notes-normal");
+    const notesLowBox    = document.getElementById("notes-low");
+    const notesHighBox   = document.getElementById("notes-high");
+    const accNormal      = document.getElementById("acc-normal");
+    const accLow         = document.getElementById("acc-low");
+    const accHigh        = document.getElementById("acc-high");
+
+    let selectedFile = null;
+
+    pdfInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        selectedFile = null;
+        analyzeBtn.disabled = true;
+        fileNameLabel.textContent = "";
+        return;
+      }
+      selectedFile = file;
+      fileNameLabel.textContent = file.name;
+      analyzeBtn.disabled = false;
+      resultsContainer.style.display = "none";
+      statusLine.textContent = "";
+    });
+
+    analyzeBtn.addEventListener("click", async () => {
+      if (!selectedFile) return;
+      statusLine.textContent = "PDF okunuyor, lütfen bekleyin...";
+      resultsContainer.style.display = "none";
+      resultsBody.innerHTML = "";
+
+      notesNormalBox.textContent = "";
+      notesLowBox.textContent = "";
+      notesHighBox.textContent = "";
+      accNormal.style.display = "none";
+      accLow.style.display = "none";
+      accHigh.style.display = "none";
+      accNormal.classList.remove("open");
+      accLow.classList.remove("open");
+      accHigh.classList.remove("open");
+
+      try {
+        const text = await extractTextFromPDF(selectedFile);
+        statusLine.textContent = "Testler analiz ediliyor...";
+
+        const parsedResults = parseTestsFromText(text);
+        if (parsedResults.length === 0) {
+          statusLine.textContent =
+            "Bu PDF'de tanımlı testlerden hiçbiri bulunamadı. Format veya yazım farkı olabilir.";
+          return;
+        }
+
+        fillResultsTable(parsedResults);
+        fillNotes(parsedResults);
+        resultsContainer.style.display = "block";
+        statusLine.textContent = `${parsedResults.length} test bulundu ve yorumlandı.`;
+      } catch (err) {
+        console.error(err);
+        statusLine.textContent = "PDF okunurken bir hata oluştu. Dosya formatını kontrol edin.";
+      }
+    });
+
+    async function extractTextFromPDF(file) {
+      const fileData = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: fileData });
+      const pdf = await loadingTask.promise;
+
+      let fullText = "";
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        const strings = content.items.map((item) => item.str);
+        fullText += strings.join(" ") + "\n";
+      }
+
+      return fullText;
+    }
+
+    function parseTestsFromText(text) {
+      const results = [];
+      const normalizedText = text.replace(/\s+/g, " ");
+
+      TEST_DEFS.forEach((test) => {
+        for (const label of test.labels) {
+          const pattern = new RegExp(
+            "(" + label + ")\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)\\s*([a-zA-Z/%µµIU\\.]*?)\\b",
+            "i"
+          );
+          const match = normalizedText.match(pattern);
+          if (match) {
+            const rawValue = match[2].replace(",", ".");
+            const value = parseFloat(rawValue);
+            let unit = match[3] || test.unit;
+
+            if (!unit || unit.length < 2) unit = test.unit;
+
+            let status = "normal";
+            if (!isNaN(value)) {
+              if (test.min !== undefined && value < test.min) status = "low";
+              if (test.max !== undefined && value > test.max) status = "high";
+            }
+
+            results.push({
+              key: test.key,
+              name: label,
+              value,
+              unit,
+              refMin: test.min,
+              refMax: test.max,
+              status,
+              noteNormal: test.noteNormal || "",
+              noteHigh: test.noteHigh || "",
+              noteLow: test.noteLow || ""
+            });
+            break;
+          }
+        }
+      });
+
+      return results;
+    }
+
+    function fillResultsTable(results) {
+      resultsBody.innerHTML = "";
+
+      results.forEach((r) => {
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.textContent = r.name;
+        tr.appendChild(tdName);
+
+        const tdVal = document.createElement("td");
+        tdVal.textContent = `${r.value} ${r.unit}`;
+        tr.appendChild(tdVal);
+
+        const tdRef = document.createElement("td");
+        if (r.refMin !== undefined && r.refMax !== undefined) {
+          tdRef.textContent = `${r.refMin} – ${r.refMax} ${r.unit}`;
+        } else {
+          tdRef.textContent = "-";
+        }
+        tr.appendChild(tdRef);
+
+        const tdStatus = document.createElement("td");
+        const span = document.createElement("span");
+        span.classList.add("badge-status");
+        if (r.status === "high") {
+          span.classList.add("status-high");
+          span.textContent = "Yüksek";
+        } else if (r.status === "low") {
+          span.classList.add("status-low");
+          span.textContent = "Düşük";
+        } else {
+          span.classList.add("status-normal");
+          span.textContent = "Normal";
+        }
+        tdStatus.appendChild(span);
+        tr.appendChild(tdStatus);
+
+        resultsBody.appendChild(tr);
+      });
+    }
+
+    function fillNotes(results) {
+      const highs   = results.filter(r => r.status === "high");
+      const lows    = results.filter(r => r.status === "low");
+      const normals = results.filter(r => r.status === "normal");
+
+      accNormal.style.display = "none";
+      accLow.style.display    = "none";
+      accHigh.style.display   = "none";
+
+      notesNormalBox.textContent = "";
+      notesLowBox.textContent    = "";
+      notesHighBox.textContent   = "";
+
+      if (normals.length > 0) {
+        accNormal.style.display = "block";
+        const lines = [];
+        lines.push("Bu bölümde, normal aralıkta çıkan testlerin neyi ifade ettiği anlatılmaktadır:");
+        normals.forEach(r => {
+          const txt = r.noteNormal || "Bu testin sonucu normal aralıkta.";
+          lines.push(`• ${r.name}: ${txt}`);
+        });
+        notesNormalBox.textContent = lines.join("\n\n");
+      }
+
+      if (lows.length > 0) {
+        accLow.style.display = "block";
+        const lines = [];
+        lines.push("Bu bölümde, referans aralığının ALTINDA olan testlerin olası anlamları açıklanmaktadır:");
+        lows.forEach(r => {
+          const txt = r.noteLow || "Referansın altında; beslenme durumu, ilaçlar veya organ fonksiyonu ile ilişkili olabilir.";
+          lines.push(`• ${r.name}: ${txt}`);
+        });
+        notesLowBox.textContent = lines.join("\n\n");
+      }
+
+      if (highs.length > 0) {
+        accHigh.style.display = "block";
+        const lines = [];
+        lines.push("Bu bölümde, referans aralığının ÜSTÜNDE olan testlerin olası anlamları açıklanmaktadır:");
+        highs.forEach(r => {
+          const txt = r.noteHigh || "Referansın üzerinde; metabolik, inflamatuvar veya hormonal bir değişiklik gösterebilir.";
+          lines.push(`• ${r.name}: ${txt}`);
+        });
+        notesHighBox.textContent = lines.join("\n\n");
+      }
+
+      if (normals.length === 0 && lows.length === 0 && highs.length === 0) {
+        accNormal.style.display = "block";
+        notesNormalBox.textContent =
+          "Bu raporda tanımlı testler için anlamlı bir veri yakalanamadı veya hepsi sınırda değerlere sahip.\n" +
+          "Laboratuvar sonuçları her zaman şikâyetler ve fizik muayene ile birlikte yorumlanmalıdır.";
+      }
+    }
+
+    document.addEventListener("click", (e) => {
+      const header = e.target.closest(".accordion-header");
+      if (!header) return;
+      const item = header.parentElement;
+      item.classList.toggle("open");
+    });
+  </script>
+</body>
+</html>

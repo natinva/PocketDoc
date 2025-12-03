@@ -1,0 +1,1 @@
+pip install ultralytics opencv-python pillow reportlab && python "/Users/avnitan/PycharmProjects/TestProject/PocketDoc/Dermatoloji/Vitiligo Detector/VitiligoDetector.py"
